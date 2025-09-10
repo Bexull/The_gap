@@ -1,0 +1,6 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+не создавать md файлы, если не запрошено

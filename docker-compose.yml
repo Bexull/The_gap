@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  bot-kenmart:
+    build: .
+    container_name: kenmart-bot
+    restart: unless-stopped
+    volumes:
+      # Volume для данных приложения
+      - bot_data:/app/data
+      # Volume для логов (опционально)
+      - bot_logs:/app/logs
+      # Монтируем конфигурацию (если нужно изменять без пересборки)
+      - ./src/config:/app/src/config:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Если нужны переменные из .env файла
+    env_file:
+      - .env
+    # Для отладки (можно убрать в продакшене)
+    stdin_open: true
+    tty: true
+
+volumes:
+  bot_data:
+    driver: local
+  bot_logs:
+    driver: local

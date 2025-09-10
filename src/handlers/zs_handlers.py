@@ -1,0 +1,533 @@
+import pandas as pd
+from datetime import datetime, timedelta
+import datetime as dt
+from telegram import Update
+from telegram.ext import CallbackContext
+from ..database.sql_client import SQL
+from ..keyboards.zs_keyboards import get_zs_main_menu_keyboard, get_opv_list_keyboard, get_opv_names_keyboard
+from ..keyboards.opv_keyboards import get_next_task_keyboard, get_task_keyboard
+from ..config.settings import ZS_GROUP_CHAT_ID, MERCHANT_ID
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
+
+
+def safe_update_user_data(application, user_id, updates):
+    """Безопасно обновляет user_data для предотвращения ошибок mappingproxy"""
+    try:
+        # Получаем текущий контекст
+        current_data = application.user_data.get(user_id, {})
+        
+        # Создаем новый словарь
+        new_data = dict(current_data)
+        
+        # Применяем обновления
+        new_data.update(updates)
+        
+        # Присваиваем новый словарь
+        application.user_data[user_id] = new_data
+        
+        return True
+    except Exception as e:
+        print(f"⚠️ Ошибка при обновлении user_data для {user_id}: {e}")
+        return False
+
+
+async def show_opv_list(update: Update, context: CallbackContext):
+    """Показывает меню списка ОПВ"""
+    query = update.callback_query
+    await query.answer()
+
+    reply_markup = get_opv_list_keyboard()
+    await query.edit_message_text("Выберите категорию ОПВ:", reply_markup=reply_markup)
+
+async def show_opv_free(update: Update, context: CallbackContext):
+    """Показывает список свободных ОПВ"""
+    query = update.callback_query
+    await query.answer()
+
+    df = SQL.sql_select('wms', f"""
+SELECT DISTINCT sh.employee_id, sh.role, sh.shift_type, concat(bs."name", ' ', bs.surname) user_name
+        FROM wms_bot.shift_sessions1 sh
+        LEFT JOIN (
+            SELECT user_id, MAX(time_end) AS task_end
+            FROM wms_bot.shift_tasks where task_date =current_date AND merchant_code = '{MERCHANT_ID}'
+            GROUP BY user_id
+        ) t ON t.user_id = sh.employee_id::int
+        left join wms_bot.t_staff bs ON bs.id = sh.employee_id::int
+        WHERE sh.end_time IS NULL  
+          AND t.task_end IS NOT NULL   and sh.role ='opv'
+        ORDER BY user_name
+    """)
+
+    if df.empty:
+        await query.edit_message_text("Нет свободных ОПВ на смене.")
+        return
+
+    reply_markup = get_opv_names_keyboard(df, 'opv')
+    await query.edit_message_text("✅ Свободные ОПВ (задание завершено):", reply_markup=reply_markup)
+
+async def show_opv_busy(update: Update, context: CallbackContext):
+    """Показывает список занятых ОПВ"""
+    query = update.callback_query
+    await query.answer()
+
+    df = SQL.sql_select('wms', f"""
+        SELECT DISTINCT 
+            sh.employee_id, 
+            sh.role, 
+            sh.shift_type, 
+            concat(bs."name", ' ', bs.surname) user_name
+        FROM wms_bot.shift_sessions1 sh
+        LEFT JOIN (
+            SELECT 
+                user_id, 
+                status
+            FROM wms_bot.shift_tasks
+            WHERE merchant_code = '{MERCHANT_ID}'
+            GROUP BY user_id,status
+        ) t ON t.user_id = sh.employee_id ::int
+        left jOIN wms_bot.t_staff bs ON bs.id = sh.employee_id::int
+        WHERE sh.end_time IS NULL  
+          AND t.status in('Выполняется','На доработке','Заморожено')
+          AND sh.role NOT IN ('zs')      
+        ORDER BY user_name;
+    """)
+
+    if df.empty:
+        await query.edit_message_text("Нет занятых ОПВ на смене.")
+        return
+
+    keyboard = []
+    for _, row in df.iterrows():
+        user_name = str(row.get('user_name', '')).strip()
+        if user_name:  # Пропускаем пустые имена
+            keyboard.append([
+                InlineKeyboardButton(text=user_name, callback_data=f"opv_{row['employee_id']}")
+            ])
+
+    if not keyboard:
+        await query.edit_message_text("⏳ Нет валидных данных для отображения.")
+        return
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("⏳ Занятые ОПВ (задание выполняется):", reply_markup=reply_markup)
+
+async def show_opv_completed_list(update: Update, context: CallbackContext):
+    """Показывает список ОПВ, завершивших смену"""
+    query = update.callback_query
+    await query.answer()
+    shift = context.user_data.get('shift')
+
+    try:
+        completed_df = SQL.sql_select('wms', f"""
+            SELECT DISTINCT st.user_id,concat(bs."name", ' ', bs.surname)
+            FROM wms_bot.shift_tasks st
+            left join wms_bot.shift_sessions1 ss on ss.employee_id::int =st.user_id 
+            left join wms_bot.t_staff bs on bs.id=st.user_id 
+            WHERE shift = '{shift}' AND st.status = 'Проверено' and ss.end_time is not null and ss.end_time ::date=current_date 
+            AND st.merchant_code = '{MERCHANT_ID}'
+        """)
+
+        if completed_df.empty:
+            await query.edit_message_text("Пока никто не завершил смену.")
+            return
+
+        keyboard = [
+            [InlineKeyboardButton(f"{row['user_name']}", callback_data=f"completed_{row['employee_id']}")]
+            for _, row in completed_df.iterrows()
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("✅ ОПВ, завершившие смену:", reply_markup=reply_markup)
+
+    except Exception as e:
+        print(f"❌ Ошибка при получении завершивших ОПВ: {e}")
+        await query.edit_message_text("Ошибка при получении данных.")
+
+async def show_opv_summary(update: Update, context: CallbackContext):
+    """Показывает статистику по ОПВ"""
+    query = update.callback_query
+    await query.answer()
+    employee_id = query.data.replace('completed_', '')
+
+    try:
+        summary_df = SQL.sql_select('stock', f"""
+            SELECT user_id, COUNT(DISTINCT id) AS task_count
+            FROM wms_bot.shift_tasks
+            WHERE user_id = '{employee_id}' AND status = 'Проверено' AND merchant_code = '{MERCHANT_ID}'
+            GROUP BY user_id
+        """)
+
+        if summary_df.empty:
+            await query.edit_message_text("Нет завершённых заданий у этого ОПВ.")
+            return
+
+        row = summary_df.iloc[0]
+        message = (
+            f"📊 *Данные по смене:*\n"
+            f"👤 *ФИО:* {row['user_name']}\n"
+            f"✅ *Кол-во выполненных задач:* {row['task_count']}"
+        )
+        await query.edit_message_text(message, parse_mode='Markdown')
+
+    except Exception as e:
+        print(f"❌ Ошибка при выводе данных по ОПВ: {e}")
+        await query.edit_message_text("Ошибка при получении данных.")
+
+async def handle_review(update: Update, context: CallbackContext):
+    """Обработчик подтверждения задания ЗС (ТОЛЬКО approve)"""
+    query = update.callback_query
+    await query.answer()
+
+    action, data = query.data.split('_', 1)  # Используем split с лимитом
+    task_id, opv_id = data.split('|')
+
+    now = datetime.now()
+    
+    print(f"🔍 handle_review: action={action}, task_id={task_id}, opv_id={opv_id}")
+
+    if action == 'approve':
+        # Получаем имя инспектора
+        inspector_df = SQL.sql_select('wms', f"""
+            SELECT fio FROM wms_bot.bot_auth WHERE userid = {update.effective_user.id}
+        """)
+        inspector_name = inspector_df.iloc[0]['fio'] if not inspector_df.empty else 'Неизвестно'
+
+        # Обновляем статус и инспектора
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET status = 'Проверено',
+                time_end = '{now}',
+                inspector_id = {update.effective_user.id}
+            WHERE id = {task_id}
+        """)
+
+        # Редактируем сообщение в чате
+        first_message_id = context.user_data.get('last_task_message_id')
+        if first_message_id:
+            try:
+                await context.bot.edit_message_caption(
+                    chat_id=ZS_GROUP_CHAT_ID,
+                    message_id=first_message_id,
+                    caption=f"✅ Задание №{task_id} одобрено."
+                )
+            except:
+                pass
+
+        await query.edit_message_text(f"✅ Задание №{task_id} одобрено.")
+
+        # Уведомляем ОПВ
+        opv_userid_df = SQL.sql_select('wms', f"""
+            SELECT userid FROM wms_bot.bot_auth WHERE employee_id = '{opv_id}'
+        """)
+        if not opv_userid_df.empty:
+            opv_user_id = int(opv_userid_df.iloc[0]['userid'])
+            
+            # Получаем выделенное время задания и добавляем к отработанному
+            task_row = SQL.sql_select('wms', f"SELECT task_duration FROM wms_bot.shift_tasks WHERE id = {task_id}")
+            if not task_row.empty:
+                from ..utils.task_utils import parse_task_duration, add_worked_time
+                duration_raw = task_row.iloc[0]['task_duration']
+                task_seconds = parse_task_duration(duration_raw)
+                
+                # Добавляем время к отработанному (используем правильный контекст)
+                # Получаем контекст пользователя через application
+                try:
+                    user_context = context.application.user_data.get(opv_user_id, {})
+                    current_worked = user_context.get('worked_seconds', 0)
+                    new_worked = current_worked + task_seconds
+                    
+                    # Используем безопасную функцию обновления
+                    success = safe_update_user_data(
+                        context.application, 
+                        opv_user_id, 
+                        {'worked_seconds': new_worked}
+                    )
+                    
+                    if success:
+                        print(f"⏰ Обновлено время работы ОПВ {opv_id}: {current_worked}s + {task_seconds}s = {new_worked}s")
+                    else:
+                        print(f"⚠️ Не удалось обновить время работы ОПВ {opv_id}")
+                except Exception as e:
+                    print(f"⚠️ Ошибка при обновлении времени работы ОПВ {opv_id}: {e}")
+                    # Если не удалось обновить контекст, просто логируем
+            
+            try:
+                await context.bot.send_message(
+                    chat_id=opv_user_id,
+                    text=f"✅ Задание №{task_id} *подтверждено* заведующим. Отличная работа!",
+                    parse_mode='Markdown'
+                )
+
+                reply_markup = get_next_task_keyboard()
+                await context.bot.send_message(
+                    chat_id=opv_user_id,
+                    text="Хотите взять следующее задание? 👇",
+                    reply_markup=reply_markup
+                )
+                print(f"✅ Сообщения отправлены ОПВ {opv_user_id} о подтверждении задания {task_id}")
+            except Exception as e:
+                print(f"❌ Ошибка при отправке сообщения ОПВ {opv_user_id}: {e}")
+                # Отправляем уведомление в группу ЗС
+                await context.bot.send_message(
+                    chat_id=ZS_GROUP_CHAT_ID,
+                    text=f"⚠️ Не удалось отправить уведомление ОПВ {opv_id} о подтверждении задания {task_id}. Ошибка: {e}"
+                )
+    else:
+        # Если это не approve - значит что-то пошло не так
+        print(f"⚠️ Неожиданный action в handle_review: {action}")
+        await query.edit_message_text("⚠️ Ошибка обработки действия.")
+
+
+async def start_reject_reason(update: Update, context: CallbackContext):
+    """Начало процесса возврата задания с указанием причины"""
+    query = update.callback_query
+    await query.answer()
+
+    # Правильно парсим callback_data
+    callback_data = query.data
+    print(f"🔍 start_reject_reason: callback_data = {callback_data}")
+    
+    task_num, opv_id = callback_data.replace("start_reject_", "").split("|")
+    
+    context.user_data.update({
+        'reject_task_id': task_num,
+        'reject_opv_id': opv_id
+    })
+    
+    print(f"🔍 ЗС {update.effective_user.id} начал возврат задания {task_num} для ОПВ {opv_id}")
+ 
+    try:
+        await query.edit_message_caption("✏️ Пожалуйста, укажите причину возврата задания:")
+    except Exception as e2:
+        print(f"❌ Ошибка при смене текста/caption: {e2}")
+
+    # Дополнительно отправляем отдельное сообщение с ForceReply, чтобы
+    # бот точно получил ответ даже при включённой приватности в группе
+    try:
+        thread_id = getattr(query.message, 'message_thread_id', None)
+        if thread_id is not None:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="✏️ Пожалуйста, укажите причину возврата задания (ответьте на это сообщение):",
+                reply_markup=ForceReply(selective=True),
+                message_thread_id=thread_id
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="✏️ Пожалуйста, укажите причину возврата задания (ответьте на это сообщение):",
+                reply_markup=ForceReply(selective=True)
+            )
+    except Exception as e:
+        print(f"⚠️ Не удалось отправить ForceReply запрос: {e}")
+
+
+async def receive_reject_reason(update: Update, context: CallbackContext):
+    """Обработчик причины возврата задания - только для ЗС"""
+    
+    user_id = update.effective_user.id
+    task_id = context.user_data.get('reject_task_id')
+    opv_id = context.user_data.get('reject_opv_id')
+    
+    print(f"🔍 receive_reject_reason ВЫЗВАНА: пользователь {user_id}")
+    print(f"🔍 task_id={task_id}, opv_id={opv_id}")
+    print(f"🔍 Текст сообщения: '{update.message.text}'")
+    print(f"🔍 Весь контекст пользователя: {context.user_data}")
+    
+    # КРИТИЧЕСКИ ВАЖНО: проверяем, что это именно ЗС, который ждет ввода причины
+    if not task_id or not opv_id:
+        print(f"🔍 Нет reject_task_id или reject_opv_id для пользователя {user_id}, пропускаем")
+        return  # Просто игнорируем сообщение
+    
+    # Дополнительная проверка: если сообщение начинается с команды, игнорируем
+    message_text = update.message.text.strip() if update.message.text else ""
+    if message_text.startswith('/') or len(message_text) < 3:
+        print(f"🔍 Сообщение похоже на команду или слишком короткое, пропускаем: {message_text}")
+        return
+    
+    reason = message_text
+    print(f"🔍 Обрабатываем возврат задания {task_id} с причиной: {reason}")
+
+    try:
+        print(f"🔍 Начинаем обработку возврата...")
+        
+        # Сначала отправляем подтверждение ЗС
+        await update.message.reply_text(f"⏳ Обрабатываю возврат задания №{task_id}...")
+        
+        # Проверяем, что задание существует
+        print(f"🔍 Проверяем существование задания {task_id}")
+        task_check_df = SQL.sql_select('wms', f"""
+            SELECT id, user_id, status FROM wms_bot.shift_tasks WHERE id = {task_id}
+        """)
+        
+        if task_check_df.empty:
+            print(f"❌ Задание {task_id} не найдено в БД")
+            await update.message.reply_text("⚠️ Задание не найдено или уже обработано.")
+            context.user_data.pop('reject_task_id', None)
+            context.user_data.pop('reject_opv_id', None)
+            return
+            
+        print(f"✅ Задание найдено: {task_check_df.iloc[0].to_dict()}")
+        current_status = task_check_df.iloc[0]['status']
+        
+        # Разрешаем возврат, когда задача на проверке/ожидает проверки, выполняется или уже помечена на доработку
+        if current_status not in ['На проверке', 'Выполняется', 'Ожидает проверки']:
+            print(f"❌ Неподходящий статус: {current_status}")
+            await update.message.reply_text(f"⚠️ Задание уже имеет статус '{current_status}' и не может быть возвращено.")
+            context.user_data.pop('reject_task_id', None)
+            context.user_data.pop('reject_opv_id', None)
+            return
+
+        # Обновляем статус с экранированием кавычек
+        escaped_reason = reason.replace("'", "''")
+        print(f"🔍 Обновляем статус задания на 'На доработке'")
+        
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET status = 'На доработке'
+            WHERE id = {task_id}
+        """)
+        
+        print(f"✅ Статус обновлен")
+
+        # Получаем данные задания для уведомления
+        print(f"🔍 Получаем данные задания для уведомления")
+        task_df = SQL.sql_select('wms', f"""
+            SELECT user_id, task_name, slot, time_begin, task_duration, product_group
+            FROM wms_bot.shift_tasks
+            WHERE id = {task_id}
+        """)
+        
+        if task_df.empty:
+            print(f"❌ Не удалось получить данные задания")
+            await update.message.reply_text("⚠️ Не найдено задание для возврата.")
+            context.user_data.pop('reject_task_id', None)
+            context.user_data.pop('reject_opv_id', None)
+            return
+
+        row = task_df.iloc[0]
+        opv_employee_id = row['user_id']
+        print(f"🔍 ID сотрудника из задания: {opv_employee_id}")
+
+        # Получаем Telegram ID сотрудника
+        print(f"🔍 Получаем Telegram ID для employee_id {opv_employee_id}")
+        opv_userid_df = SQL.sql_select('wms', f"""
+            SELECT userid FROM wms_bot.bot_auth WHERE employee_id = '{opv_employee_id}'
+        """)
+        
+        if opv_userid_df.empty:
+            print(f"❌ Не найден Telegram ID для employee_id {opv_employee_id}")
+            await update.message.reply_text("⚠️ У сотрудника не зарегистрирован Telegram ID.")
+            context.user_data.pop('reject_task_id', None)
+            context.user_data.pop('reject_opv_id', None)
+            return
+
+        opv_user_id = int(opv_userid_df.iloc[0]['userid'])
+        print(f"✅ Найден Telegram ID: {opv_user_id}")
+
+        # Обработка времени
+        if isinstance(row['time_begin'], dt.time):
+            assigned_time = datetime.combine(datetime.today(), row['time_begin'])
+        else:
+            assigned_time = pd.to_datetime(row['time_begin'])
+
+        total_duration = (
+            row['task_duration'].hour * 3600 + row['task_duration'].minute * 60 + row['task_duration'].second
+            if isinstance(row['task_duration'], dt.time)
+            else 900
+        )
+        deadline = assigned_time + timedelta(seconds=total_duration)
+        now = datetime.now()
+        remaining_seconds = max(0, int((deadline - now).total_seconds()))
+
+        # Формируем сообщение для ОПВ
+        message = (
+            f"⚠️ Задание №{task_id} вернули на доработку.\n"
+            f"📝 Причина: {reason}\n\n"
+            f"📋 *Задание повторно активировано:*\n"
+            f"📍 *Слот:* {row['slot']}\n"
+            f"📝 *Наименование:* {row['task_name']}\n"
+            f"📦 *Группа товаров:* {row.get('product_group', '—')}\n"
+            f"⏱ *Выделенное время:* {str(timedelta(seconds=total_duration))}\n"
+            f"⏳ *Оставшееся время:* {str(timedelta(seconds=remaining_seconds))}"
+        )
+        
+
+        print(f"🔍 Отправляем сообщение ОПВ {opv_user_id}")
+        print(f"🔍 Текст сообщения: {message}")
+
+        # Отправляем уведомление ОПВ
+        try:
+            await context.bot.send_message(
+                chat_id=opv_user_id,
+                text=message,
+                parse_mode='Markdown',
+                reply_markup=get_task_keyboard()
+            )
+            print(f"✅ Сообщение о возврате отправлено ОПВ {opv_user_id}")
+        except Exception as e:
+            print(f"❌ Ошибка при отправке сообщения о возврате ОПВ {opv_user_id}: {e}")
+            # Отправляем уведомление в группу ЗС
+            await context.bot.send_message(
+                chat_id=ZS_GROUP_CHAT_ID,
+                text=f"⚠️ Не удалось отправить уведомление о возврате ОПВ {opv_employee_id} для задания {task_id}. Ошибка: {e}"
+            )
+
+        # Обновляем контекст ОПВ
+        try:
+            # Подготавливаем данные для обновления
+            task_data = {
+                'task_id': task_id,
+                'task_name': row['task_name'],
+                'slot': row['slot'],
+                'assigned_time': assigned_time,
+                'duration': int(total_duration // 60),
+                'status': 'На доработке'
+            }
+            
+            # Используем безопасную функцию обновления
+            success = safe_update_user_data(
+                context.application,
+                opv_user_id,
+                {
+                    'task': task_data,
+                    'photos': None,  # Очищаем фото
+                    'photo_request_time': None  # Очищаем время запроса фото
+                }
+            )
+            
+            if success:
+                print(f"✅ Контекст ОПВ {opv_user_id} обновлен")
+            else:
+                print(f"⚠️ Не удалось обновить контекст ОПВ {opv_user_id}")
+        except Exception as e:
+            print(f"⚠️ Ошибка при обновлении контекста ОПВ {opv_user_id}: {e}")
+        
+        # Уведомляем ЗС об успехе
+        await update.message.reply_text(f"✅ Задание №{task_id} возвращено на доработку. ОПВ уведомлён.")
+
+        # Обновляем сообщение в групповом чате, если есть
+        first_message_id = context.user_data.get('last_task_message_id')
+        if first_message_id:
+            try:
+                print(f"🔍 Обновляем сообщение в групповом чате, message_id: {first_message_id}")
+                await context.bot.edit_message_caption(
+                    chat_id=ZS_GROUP_CHAT_ID,
+                    message_id=first_message_id,
+                    caption=f"⚠️ Задание №{task_id} возвращено на доработку.\nПричина: {reason}"
+                )
+                print(f"✅ Сообщение в групповом чате обновлено")
+            except Exception as e:
+                print(f"⚠️ Не удалось обновить сообщение в групповом чате: {e}")
+
+    except Exception as e:
+        print(f"❌ Ошибка при возврате задания: {e}")
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text("⚠️ Произошла ошибка при возврате задания. Попробуйте позже.")
+
+    finally:
+        # ВАЖНО: ВСЕГДА очищаем контекст ЗС после обработки
+        print(f"🔍 Очищаем контекст ЗС для пользователя {user_id}")
+        context.user_data.pop('reject_task_id', None)
+        context.user_data.pop('reject_opv_id', None)
+        print(f"✅ Контекст ЗС очищен")
