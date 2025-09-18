@@ -92,6 +92,7 @@ async def send_task_to_zs(context, task: dict, photos: list):
             f"📝 *Наименование:* {task.get('task_name', '—')}\n"
             f"📦 *Группа товаров:* {task.get('product_group', '—')}\n"
             f"📍 *Слот:* {task.get('slot', '—')}\n"
+            f"🏢 *Поставщик:* {task.get('provider', 'Не указан')}\n"
             f"🏷️ *Сектор:* {sector}\n"
             f"⏱️ Время выполнения: {str(time_spent).split('.')[0]}\n"
             f"⏳ Выделенное время: {task['duration']} мин"

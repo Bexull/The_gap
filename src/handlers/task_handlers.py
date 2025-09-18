@@ -209,6 +209,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
             'task_name': task_row['task_name'],
             'product_group': task_row['product_group'],
             'slot': task_row['slot'],
+            'provider': task_row.get('provider', 'Не указан'),
             'duration': task_row['task_duration'],
             'assigned_time': now
         }
@@ -224,6 +225,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
             f"📝 *Наименование:* {task_row['task_name']}\n"
             f"📦 *Группа товаров:* {task_row.get('product_group', '—')}\n"
             f"📍 *Слот:* {task_row['slot']}\n"
+            f"🏢 *Поставщик:* {task_row.get('provider', 'Не указан')}\n"
             f"⏱ *Выделенное время:* {str(timedelta(seconds=total_seconds))}\n"
             f"⏳ *Оставшееся время:* {str(timedelta(seconds=total_seconds))}"
         )
@@ -260,6 +262,7 @@ async def update_timer(context, chat_id, message_id, task, total_seconds, reply_
                 f"📝 *Наименование:* {task['task_name']}\n"
                 f"📦 *Группа товаров:* {task.get('product_group', '—')}\n"
                 f"📍 *Слот:* {task.get('slot', '—')}\n"
+                f"🏢 *Поставщик:* {task.get('provider', 'Не указан')}\n"
                 f"⏱ *Выделенное время:* {task['duration']}\n"
                 f"⏳ *Оставшееся время:* {remaining_str}"
             )
@@ -297,7 +300,7 @@ async def complete_task_inline(update: Update, context: CallbackContext):
 
         # Проверяем активное задание из базы
         task_df = SQL.sql_select('wms', f"""
-            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment
+            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, provider
             FROM wms_bot.shift_tasks
             WHERE user_id = '{staff_id}' AND status IN ('Выполняется', 'На доработке')
             AND merchant_code = '{MERCHANT_ID}'
@@ -328,6 +331,7 @@ async def complete_task_inline(update: Update, context: CallbackContext):
             'task_name': row['task_name'],
             'product_group': row['product_group'],
             'slot': row['slot'],
+            'provider': row.get('provider', 'Не указан'),
             'assigned_time': assigned_time,
             'duration': row['task_duration'],
             'assigned_time': now
@@ -407,7 +411,7 @@ async def show_task(update: Update, context: CallbackContext):
 
     # Сначала ищем активные задания (выполняющиеся)
     task_df = SQL.sql_select('wms', f"""
-        SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status
+        SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status, provider
         FROM wms_bot.shift_tasks
         WHERE user_id = '{staff_id}' AND status = 'Выполняется'
         AND merchant_code = '{MERCHANT_ID}'
@@ -417,7 +421,7 @@ async def show_task(update: Update, context: CallbackContext):
     # Если нет активных, ищем задания на доработке
     if task_df.empty:
         task_df = SQL.sql_select('wms', f"""
-            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status
+            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status, provider
             FROM wms_bot.shift_tasks
             WHERE user_id = '{staff_id}' AND status = 'На доработке'
             AND merchant_code = '{MERCHANT_ID}'
@@ -427,7 +431,7 @@ async def show_task(update: Update, context: CallbackContext):
     # Если нет заданий на доработке, ищем замороженные
     if task_df.empty:
         task_df = SQL.sql_select('wms', f"""
-            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status
+            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status, provider
             FROM wms_bot.shift_tasks
             WHERE user_id = '{staff_id}' AND status = 'Заморожено'
             AND merchant_code = '{MERCHANT_ID}'
@@ -458,6 +462,7 @@ async def show_task(update: Update, context: CallbackContext):
         f"📌 Название: *{row['task_name']}*\n"
         f"📦 Группа: {row['product_group']}\n"
         f"📍 Слот: {row['slot']}\n"
+        f"🏢 Поставщик: {row.get('provider', 'Не указан')}\n"
         f"⏰ Время начала: {row['time_begin']}\n"
         f"⏳ Плановая длительность: {row['task_duration']} мин\n"
         f"{status_emoji} *Статус:* {status_text}"
@@ -695,7 +700,7 @@ async def complete_the_task(update: Update, context: CallbackContext):
 
         # Проверяем активное задание из базы
         task_df = SQL.sql_select('wms', f"""
-            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment
+            SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, provider
             FROM wms_bot.shift_tasks
             WHERE user_id = '{staff_id}' AND status IN ('Выполняется', 'На доработке')
             AND merchant_code = '{MERCHANT_ID}'
@@ -727,6 +732,7 @@ async def complete_the_task(update: Update, context: CallbackContext):
             'task_name': row['task_name'],
             'product_group': row['product_group'],
             'slot': row['slot'],
+            'provider': row.get('provider', 'Не указан'),
             'assigned_time': assigned_time,
             'duration': row['task_duration'],
             'assigned_time': now
