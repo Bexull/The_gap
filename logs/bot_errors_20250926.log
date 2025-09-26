@@ -1,0 +1,76 @@
+2025-09-26 22:31:35 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_application.py", line 1311, in process_update
+    await coroutine
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_handlers\basehandler.py", line 158, in handle_update
+    return await self.callback(update, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "g:\FOR ALL BOTS\The_gap\src\handlers\task_handlers\task_execution.py", line 96, in complete_task_inline
+    await query.edit_message_text(
+    ...<3 lines>...
+    )
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_callbackquery.py", line 266, in edit_message_text
+    return await self._get_message().edit_text(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<11 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_message.py", line 3904, in edit_text
+    return await self.get_bot().edit_message_text(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<15 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_extbot.py", line 1723, in edit_message_text
+    return await super().edit_message_text(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<15 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_bot.py", line 4294, in edit_message_text
+    return await self._send_message(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<11 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_extbot.py", line 630, in _send_message
+    result = await super()._send_message(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<21 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_bot.py", line 810, in _send_message
+    result = await self._post(
+             ^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_bot.py", line 698, in _post
+    return await self._do_post(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_extbot.py", line 370, in _do_post
+    return await super()._do_post(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\_bot.py", line 727, in _do_post
+    result = await request.post(
+             ^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\request\_baserequest.py", line 197, in post
+    result = await self._request_wrapper(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\request\_baserequest.py", line 374, in _request_wrapper
+    raise exception
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-26 22:49:44 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-40' coro=<update_timer() done, defined at g:\FOR ALL BOTS\The_gap\src\handlers\task_handlers\task_timer.py:8> wait_for=<Future pending cb=[Task.task_wakeup()]>>

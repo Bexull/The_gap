@@ -192,10 +192,11 @@ async def handle_review(update: Update, context: CallbackContext):
         inspector_name = inspector_df.iloc[0]['fio'] if not inspector_df.empty else 'Неизвестно'
 
         # Обновляем статус и инспектора
+        now_str = now.strftime('%Y-%m-%d %H:%M:%S')
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Проверено',
-                time_end = '{now}',
+                time_end = '{now_str}',
                 inspector_id = {update.effective_user.id}
             WHERE id = {task_id}
         """)
@@ -284,8 +285,6 @@ async def start_reject_reason(update: Update, context: CallbackContext):
 
     # Правильно парсим callback_data
     callback_data = query.data
-    print(f"🔍 start_reject_reason: callback_data = {callback_data}")
-    
     task_num, opv_id = callback_data.replace("start_reject_", "").split("|")
     
     context.user_data.update({
@@ -294,14 +293,8 @@ async def start_reject_reason(update: Update, context: CallbackContext):
     })
     
     print(f"🔍 ЗС {update.effective_user.id} начал возврат задания {task_num} для ОПВ {opv_id}")
- 
-    try:
-        await query.edit_message_caption("✏️ Пожалуйста, укажите причину возврата задания:")
-    except Exception as e2:
-        print(f"❌ Ошибка при смене текста/caption: {e2}")
 
-    # Дополнительно отправляем отдельное сообщение с ForceReply, чтобы
-    # бот точно получил ответ даже при включённой приватности в группе
+    # Отправляем отдельное сообщение с ForceReply для запроса причины
     try:
         thread_id = getattr(query.message, 'message_thread_id', None)
         if thread_id is not None:

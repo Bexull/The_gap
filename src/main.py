@@ -6,6 +6,10 @@ from telegram.ext import (
     MessageHandler, filters
 )
 
+# Инициализация логирования
+from .config.logging_config import setup_logging
+setup_logging()
+
 from .config.settings import TOKEN
 from .handlers.auth_handlers import start, handle_contact
 from .handlers.navigation_handlers import back_to_previous_menu, back_to_start
@@ -16,12 +20,14 @@ from .handlers.shift_handlers import (
 from .handlers.task_handlers import (
     get_task, complete_the_task, receive_photo, complete_the_extra_task,
     complete_task_inline, complete_special_task_inline, show_task, clear_topic_handler, clear_topic_confirm_handler,
-    clear_topic_callback_handler
+    clear_topic_callback_handler, set_special_task
 )
 from .handlers.zs_handlers import (
     show_opv_list, show_opv_free, show_opv_busy, show_opv_completed_list,
     show_opv_summary, handle_review, start_reject_reason, receive_reject_reason
 )
+from .handlers.admin_handlers import send_notification, handle_notification_text
+from .handlers.see_handlers import see_free_opv, set_push_opv
 from .scheduler.task_scheduler import schedule_tasks_from_rules, auto_close_expired_tasks
 
 def main():
@@ -38,13 +44,18 @@ def main():
     application.add_handler(CommandHandler('force_close_tasks', auto_close_expired_tasks))
     application.add_handler(CommandHandler("clear", clear_topic_handler))  # Простая версия
     application.add_handler(CommandHandler("clear_confirm", clear_topic_confirm_handler))  # С подтверждением
+    application.add_handler(CommandHandler("send_notification", send_notification))  # Админ команда
+    application.add_handler(CommandHandler("set", set_special_task))  # ТЕСТОВАЯ команда для спец-задания
+    application.add_handler(CommandHandler("see", see_free_opv))  # Просмотр свободных ОПВ
+    application.add_handler(CommandHandler("set_push_opv", set_push_opv))  # Принудительная раздача заданий
 
 
     # Обработчики сообщений
     application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     application.add_handler(MessageHandler(filters.PHOTO, receive_photo))
-    # Текстовый ввод (в т.ч. причина возврата задания ЗС)
+    # Текстовый ввод - сначала проверяем возврат заданий, потом уведомления
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receive_reject_reason))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_notification_text))
     
 
     # Обработчики callback-запросов
@@ -67,7 +78,7 @@ def main():
 
     # Планировщики
     application.job_queue.run_repeating(schedule_tasks_from_rules, interval=60, first=10)
-    print("✅ Планировщик запущен")
+    print("✅ Планировщик запущен (интервал: 60 секунд)")
     
     # Вечером в 9:00
     application.job_queue.run_daily(auto_close_expired_tasks, time(hour=4, minute=0))

@@ -86,15 +86,18 @@ async def employment_type_choice(update: Update, context: CallbackContext):
     employment_type = query.data.replace('employment_', '')
     context.user_data['employment_type'] = employment_type
 
+    # Логируем выбор типа занятости
     try:
-        # Сохраняем тип занятости в shift_sessions1
-        SQL.sql_delete('wms', f"""
-            UPDATE wms_bot.wms_bot.shift_tasks
-            SET part_time = '{employment_type}'
-            WHERE user_id = '{context.user_data['staff_id']}' 
-        """)
+        from datetime import datetime
+        log_entry = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Пользователь {context.user_data['staff_id']} ({context.user_data.get('staff_name', 'Неизвестно')}) выбрал тип занятости: '{employment_type}'\n"
+        
+        with open('employment_choice_log.txt', 'a', encoding='utf-8') as f:
+            f.write(log_entry)
     except Exception as e:
-        print(f"❌ Ошибка сохранения типа занятости: {e}")
+        print(f"⚠️ Ошибка записи в лог: {e}")
+
+    # Тип занятости сохраняется в context.user_data и будет использован при назначении заданий
+    print(f"✅ Тип занятости '{employment_type}' сохранен в контекст для пользователя {context.user_data['staff_id']}")
 
     # Переход к выбору сектора
     shift = context.user_data.get('shift')
