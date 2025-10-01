@@ -4,7 +4,7 @@ import datetime as dt
 from telegram import Update
 from telegram.ext import CallbackContext
 from ...database.sql_client import SQL
-from ...utils.time_utils import get_current_slot, get_task_date
+from ...utils.time_utils import get_task_date
 from ...config.settings import MERCHANT_ID
 from ...utils.task_utils import check_user_task_status
 from ...keyboards.opv_keyboards import get_sector_keyboard, get_task_in_progress_keyboard
@@ -78,38 +78,13 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         shift_ru = 'День' if shift == 'day' else 'Ночь'
 
         task_date = get_task_date(shift)
-        current_slot = get_current_slot(shift)
-        
-        # Проверяем наличие заданий "Выкладка приход" вне зависимости от слота
-        special_task_query = f"""
-            SELECT COUNT(*) as count FROM wms_bot.shift_tasks
-            WHERE task_date = '{task_date}'
-              AND shift = '{shift_ru}'
-              AND sector = '{sector}'
-              AND task_name = 'Выкладка приход'
-              AND is_constant_task = true
-              AND merchant_code ='{MERCHANT_ID}'
-              AND (status IS NULL OR status = 'В ожидании')
-        """
-        special_task_df = SQL.sql_select('wms', special_task_query)
-        has_special_tasks = special_task_df.iloc[0]['count'] > 0 if not special_task_df.empty else False
-        
-        # Если нет активного слота и нет заданий "Выкладка приход", возвращаем сообщение
-        if current_slot is None and not has_special_tasks:
-            await query.edit_message_text("⏰ Сейчас не время активного слота.")
-            return
 
-        # Выбираем задание из shift_tasks
-        # Для "Выкладка приход" игнорируем слот, для остальных проверяем
+        # Выбираем задание из shift_tasks (независимо от слота)
         sql_query = f"""
             SELECT * FROM wms_bot.shift_tasks
             WHERE task_date = '{task_date}'
               AND shift = '{shift_ru}'
               AND sector = '{sector}'
-              AND (
-                  (task_name = 'Выкладка приход') OR 
-                  (slot = {current_slot})
-              )
               AND is_constant_task = true
               AND merchant_code ='{MERCHANT_ID}'
               AND (status IS NULL OR status = 'В ожидании')
