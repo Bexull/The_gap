@@ -59,7 +59,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         return
 
     try:
-        print(f"🔎 assign_task_from_sector: staff_id={employee_id}, sector={sector}, shift={shift}")
+        # Назначение задания из сектора
         # Проверяем статус заданий пользователя
         status_check = check_user_task_status(employee_id)
         if status_check['blocked']:
@@ -79,85 +79,44 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
 
         task_date = get_task_date(shift)
         current_slot = get_current_slot(shift)
-        if current_slot is None:
+        
+        # Проверяем наличие заданий "Выкладка приход" вне зависимости от слота
+        special_task_query = f"""
+            SELECT COUNT(*) as count FROM wms_bot.shift_tasks
+            WHERE task_date = '{task_date}'
+              AND shift = '{shift_ru}'
+              AND sector = '{sector}'
+              AND task_name = 'Выкладка приход'
+              AND is_constant_task = true
+              AND merchant_code ='{MERCHANT_ID}'
+              AND (status IS NULL OR status = 'В ожидании')
+        """
+        special_task_df = SQL.sql_select('wms', special_task_query)
+        has_special_tasks = special_task_df.iloc[0]['count'] > 0 if not special_task_df.empty else False
+        
+        # Если нет активного слота и нет заданий "Выкладка приход", возвращаем сообщение
+        if current_slot is None and not has_special_tasks:
             await query.edit_message_text("⏰ Сейчас не время активного слота.")
             return
 
         # Выбираем задание из shift_tasks
+        # Для "Выкладка приход" игнорируем слот, для остальных проверяем
         sql_query = f"""
             SELECT * FROM wms_bot.shift_tasks
             WHERE task_date = '{task_date}'
               AND shift = '{shift_ru}'
               AND sector = '{sector}'
-              AND slot = {current_slot}
+              AND (
+                  (task_name = 'Выкладка приход') OR 
+                  (slot = {current_slot})
+              )
               AND is_constant_task = true
-              and merchant_code ='{MERCHANT_ID}'
+              AND merchant_code ='{MERCHANT_ID}'
               AND (status IS NULL OR status = 'В ожидании')
         """
-        # print("🔎 SQL (assign_task_from_sector):", sql_query)
         task_df = SQL.sql_select('wms', sql_query)
 
         if task_df.empty:
-            print("🔎 Результат пустой. Параметры:", {
-                'task_date': str(task_date),
-                'shift_ru': shift_ru,
-                'sector': sector,
-                'slot': current_slot,
-                'merchant': MERCHANT_ID
-            })
-            # Доп. отладка: какие мерчанты есть под эти условия без фильтра
-            dbg_merchants_sql = f"""
-                SELECT merchant_code, COUNT(*) AS cnt
-                FROM wms_bot.shift_tasks
-                WHERE task_date = '{task_date}'
-                  AND shift = '{shift_ru}'
-                  AND sector = '{sector}'
-                  AND slot = {current_slot}
-                  AND is_constant_task = true
-                GROUP BY merchant_code
-                ORDER BY cnt DESC
-            """
-            try:
-                dbg_df = SQL.sql_select('wms', dbg_merchants_sql)
-                print("🔎 Merchants under same constraints:", dbg_df.to_dict(orient='records') if hasattr(dbg_df, 'to_dict') else dbg_df)
-                # Без фильтра по слоту
-                dbg_no_slot = f"""
-                    SELECT merchant_code, slot, COUNT(*) cnt
-                    FROM wms_bot.shift_tasks
-                    WHERE task_date = '{task_date}'
-                      AND shift = '{shift_ru}'
-                      AND sector = '{sector}'
-                      AND is_constant_task = true
-                    GROUP BY merchant_code, slot
-                    ORDER BY cnt DESC
-                """
-                dbg_no_slot_df = SQL.sql_select('wms', dbg_no_slot)
-                print("🔎 Merchants by slot (no slot filter):", dbg_no_slot_df.to_dict(orient='records') if hasattr(dbg_no_slot_df, 'to_dict') else dbg_no_slot_df)
-                # Без фильтра по сектору
-                dbg_no_sector = f"""
-                    SELECT merchant_code, sector, COUNT(*) cnt
-                    FROM wms_bot.shift_tasks
-                    WHERE task_date = '{task_date}'
-                      AND shift = '{shift_ru}'
-                      AND slot = {current_slot}
-                      AND is_constant_task = true
-                    GROUP BY merchant_code, sector
-                    ORDER BY cnt DESC
-                """
-                dbg_no_sector_df = SQL.sql_select('wms', dbg_no_sector)
-                print("🔎 Merchants by sector (no sector filter):", dbg_no_sector_df.to_dict(orient='records') if hasattr(dbg_no_sector_df, 'to_dict') else dbg_no_sector_df)
-                # Сводка по доступным сменам для 5001
-                dbg_shifts_5001 = f"""
-                    SELECT shift, COUNT(*) cnt
-                    FROM wms_bot.shift_tasks
-                    WHERE task_date = '{task_date}'
-                      AND merchant_code = '{MERCHANT_ID}'
-                    GROUP BY shift
-                """
-                dbg_shifts_df = SQL.sql_select('wms', dbg_shifts_5001)
-                print("🔎 Shifts present for merchant:", dbg_shifts_df.to_dict(orient='records') if hasattr(dbg_shifts_df, 'to_dict') else dbg_shifts_df)
-            except Exception as e:
-                print("⚠️ Debug merchants query failed:", e)
             await query.edit_message_text("❌ Нет доступных заданий.")
             return
 
@@ -201,7 +160,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
                 total_seconds = t.hour * 3600 + t.minute * 60 + t.second
 
         except Exception as e:
-            print(f"❌ Ошибка парсинга task_duration: {e}")
+            # Ошибка парсинга, используем значение по умолчанию
             total_seconds = 900  # дефолт 15 мин если что-то не так
 
         # Сохраняем задание в контекст
@@ -240,11 +199,19 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         reply_markup = get_task_in_progress_keyboard()
         sent_msg = await query.edit_message_text(message, parse_mode='Markdown', reply_markup=reply_markup)
 
-        # 💥💥💥 Запускаем таймер!
+        # Запускаем таймер!
         import asyncio
-        asyncio.create_task(
-            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task, total_seconds, reply_markup)
-        )
+        from ...config.settings import active_timers, frozen_tasks_info
+        
+        # Проверяем, есть ли уже активный таймер для этого задания
+        if task['task_id'] in active_timers:
+            print(f"⚠️ [WARNING] Таймер для задания {task['task_id']} уже существует в task_assignment, не создаем новый")
+        else:
+            allocated_seconds = frozen_tasks_info.get(task['task_id'], {}).get('allocated_seconds', total_seconds)
+
+            asyncio.create_task(
+                update_timer(context, sent_msg.chat_id, sent_msg.message_id, task, allocated_seconds, reply_markup)
+            )
 
     except Exception as e:
         await query.edit_message_text("⚠️ Произошла ошибка при назначении задания.")

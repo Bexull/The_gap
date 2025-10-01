@@ -100,8 +100,12 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 'duration': frozen_task['task_duration']
             }
             
-            # Парсим время выполнения
-            total_seconds = parse_task_duration(frozen_task['task_duration'])
+            # Получаем task_id
+            task_id = frozen_task['id']
+            
+            # Используем общую функцию для получения оставшегося времени
+            from ...utils.task_utils import get_task_remaining_time
+            total_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
             
             # Получаем chat_id пользователя
             opv_userid_df = SQL.sql_select('wms', f"""
@@ -114,14 +118,22 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 # Отправляем сообщение о восстановлении задания
                 reply_markup = get_task_keyboard()
                 
+                # Используем общую функцию для форматирования информации о времени
+                from ...utils.task_utils import format_task_time_info
+                remaining_time, elapsed_info = format_task_time_info(total_seconds, elapsed_seconds)
+                
+                # Добавляем форматирование для Markdown
+                if elapsed_info:
+                    elapsed_info = elapsed_info.replace("Уже затрачено:", "*Уже затрачено:*")
+                
                 message = (
                     f"📄 *Номер задания:* {frozen_task['id']}\n"
                     f"🔄 *Задание восстановлено*\n\n"
                     f"📝 *Наименование:* {frozen_task['task_name']}\n"
                     f"📦 *Группа товаров:* {frozen_task['product_group']}\n"
                     f"📍 *Слот:* {frozen_task['slot']}\n"
-                    f"⏱ *Выделенное время:* {frozen_task['task_duration']}\n"
-                    f"⏳ *Оставшееся время:* {str(timedelta(seconds=total_seconds))}"
+                    f"⏱ *Выделенное время:* {frozen_task['task_duration']}{elapsed_info}\n"
+                    f"⏳ *Оставшееся время:* {remaining_time}"
                 )
                 
                 if frozen_task['comment']:
@@ -134,10 +146,17 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                     reply_markup=reply_markup
                 )
                 
-                # Запускаем новый таймер
-                asyncio.create_task(
-                    update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, total_seconds, reply_markup)
-                )
+                # Проверяем, есть ли уже активный таймер для этого задания
+                from ...config.settings import active_timers
+                
+                task_id = frozen_task['id']
+                if task_id in active_timers:
+                    print(f"⚠️ [WARNING] Таймер для задания {task_id} уже существует в special_tasks, не создаем новый")
+                else:
+                    # Запускаем новый таймер
+                    asyncio.create_task(
+                        update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, total_seconds, reply_markup)
+                    )
                 
         except Exception as e:
             pass

@@ -1,0 +1,297 @@
+2025-09-29 12:36:35 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 270, in show_task
+    await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_task_keyboard())
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 12:36:40 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 270, in show_task
+    await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_task_keyboard())
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 13:39:29 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 106, in complete_task_inline
+    await query.edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 17:30:57 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 106, in complete_task_inline
+    await query.edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 18:48:18 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/shift_handlers.py", line 65, in role_choice
+    await query.edit_message_text("Выберите тип занятости:", reply_markup=reply_markup)
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 18:48:18 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/shift_handlers.py", line 115, in employment_type_choice
+    await query.edit_message_text("Выберите сектор, с которым будете работать в эту смену:", reply_markup=reply_markup)
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 18:51:35 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 106, in complete_task_inline
+    await query.edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 19:43:23 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 270, in show_task
+    await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_task_keyboard())
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message
+2025-09-29 19:43:42 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_application.py", line 1195, in process_update
+    await coroutine
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_basehandler.py", line 153, in handle_update
+    return await self.callback(update, context)
+  File "/home/bexultan.kobetay/Bekzhan_DS/The_gap/src/handlers/task_handlers/task_execution.py", line 270, in show_task
+    await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_task_keyboard())
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_callbackquery.py", line 241, in edit_message_text
+    return await self.message.edit_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_message.py", line 2537, in edit_text
+    return await self.get_bot().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 1480, in edit_message_text
+    return await super().edit_message_text(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 519, in decorator
+    result = await func(self, *args, **kwargs)  # skipcq: PYL-E1102
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 3282, in edit_message_text
+    return await self._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 529, in _send_message
+    result = await super()._send_message(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 697, in _send_message
+    result = await self._post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 607, in _post
+    return await self._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/_bot.py", line 635, in _do_post
+    return await request.post(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 168, in post
+    result = await self._request_wrapper(
+  File "/home/bexultan.kobetay/.local/lib/python3.10/site-packages/telegram/request/_baserequest.py", line 325, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message

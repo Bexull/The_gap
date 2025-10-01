@@ -13,7 +13,7 @@ CONFIGS = {
         'TOKEN': '8390538420:AAEK5WxNfdX8jIXJlvvNpy5B1t65a6DYn_Y',
         'ADMIN_ID': 1015079692,
         'ZS_GROUP_CHAT_ID': -1003089690648,
-        'MERCHANT_ID': 6001,
+        'MERCHANT_ID': 6011,
         'TOPIC_IDS': {
             'Бакалея': 65,
             'Напитки': 69,
@@ -133,7 +133,9 @@ active_tasks = {}
 zav_on_shift = []
 task_assignments = {}  # {task_num: кол-во уже выданных}
 assignments = []
-active_timers = {}  # {task_id: {'chat_id': int, 'message_id': int, 'task': dict, 'total_seconds': int, 'reply_markup': obj}}
+active_timers = {}  # {task_id: {'chat_id': int, 'message_id': int, 'task': dict, 'allocated_seconds': int, 'reply_markup': obj}}
+frozen_tasks_info = {}  # {task_id: {'freeze_time': datetime, 'elapsed_seconds': int, 'original_start_time': datetime, 'remaining_seconds': int, 'allocated_seconds': int}}
+task_time_tracker = {}  # {task_id: {'elapsed_seconds': float, 'allocated_seconds': int, 'last_tick': datetime, 'original_start_time': datetime, 'remaining_seconds': int}}
 
 # =============================================================================
 # КОНСТАНТЫ

@@ -97,7 +97,6 @@ async def force_assign_tasks_by_time(context, start_time_str):
         if schedule_df.empty:
             return f"❌ Нет заданий на время {start_time_str}"
         
-        print(f"🔍 Найдено заданий на {start_time_str}: {len(schedule_df)}")
         
         results = []
         

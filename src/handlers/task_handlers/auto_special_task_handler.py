@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import CallbackContext
 from ...database.sql_client import SQL
@@ -32,19 +32,186 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
         
         active_tasks_df = SQL.sql_select('wms', active_tasks_query)
         
-        frozen_tasks_info = []
+        frozen_tasks_list = []
         
         if not active_tasks_df.empty:
             # 2. Замораживаем активные задания
-            freeze_query = f"""
-                UPDATE wms_bot.shift_tasks
-                SET status = 'Заморожено'
+            from ...config.settings import frozen_tasks_info
+            now = datetime.now()
+            now_str = now.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Для каждого активного задания сохраняем время заморозки и вычисляем прошедшее время
+            for _, task in active_tasks_df.iterrows():
+                task_id = int(task['id'])
+                
+                # Получаем время начала задания
+                task_time_info = SQL.sql_select('wms', f"""
+                    SELECT time_begin, task_duration
+                    FROM wms_bot.shift_tasks
+                    WHERE id = {task_id}
+                """)
+                
+                if not task_time_info.empty:
+                    time_begin = task_time_info.iloc[0]['time_begin']
+                    
+                    # Вычисляем прошедшее время в секундах
+                    elapsed_seconds = 0
+                    original_start_time = now  # По умолчанию текущее время
+                    
+                    if time_begin:
+                        try:
+                            # Преобразуем строку в datetime
+                            if isinstance(time_begin, str):
+                                time_begin = datetime.strptime(time_begin, '%Y-%m-%d %H:%M:%S')
+                            
+                            # Если это time объект, преобразуем его в datetime
+                            if hasattr(time_begin, 'hour') and not hasattr(time_begin, 'year'):
+                                # Это объект time, преобразуем его в datetime
+                                today = datetime.today().date()
+                                time_begin = datetime.combine(today, time_begin)
+                            
+                            # Сохраняем оригинальное время начала
+                            original_start_time = time_begin
+                            
+                            # Теперь можем безопасно вычислить разницу
+                            elapsed_seconds = int((now - time_begin).total_seconds())
+                        except Exception as e:
+                            print(f"Ошибка при вычислении прошедшего времени: {e}")
+                            # Используем безопасный метод вычисления
+                            if hasattr(time_begin, 'hour'):
+                                # Если это time объект
+                                current_time = now.time()
+                                # Вычисляем разницу в секундах
+                                elapsed_seconds = (current_time.hour - time_begin.hour) * 3600 + \
+                                                 (current_time.minute - time_begin.minute) * 60 + \
+                                                 (current_time.second - time_begin.second)
+                                # Если получилось отрицательное значение, значит прошли сутки
+                                if elapsed_seconds < 0:
+                                    elapsed_seconds += 24 * 3600
+                    
+                    # Получаем информацию о задании для расчета оставшегося времени
+                    task_duration = task_time_info.iloc[0]['task_duration']
+                    full_duration = 0
+                    
+                    # Парсим время выполнения
+                    try:
+                        from ...utils.task_utils import parse_task_duration
+                        full_duration = parse_task_duration(task_duration)
+                    except Exception as e:
+                        full_duration = 900  # По умолчанию 15 минут
+                    
+                    # Вычисляем оставшееся время
+                    remaining_seconds = max(0, full_duration - elapsed_seconds)
+                    
+                    # Сохраняем информацию о замороженном задании в глобальное хранилище
+                    frozen_tasks_info[task_id] = {
+                        'freeze_time': now,
+                        'elapsed_seconds': elapsed_seconds,
+                        'remaining_seconds': remaining_seconds,
+                        'allocated_seconds': int(elapsed_seconds + remaining_seconds),
+                        'original_start_time': original_start_time  # ИСПРАВЛЕНИЕ: сохраняем оригинальное время начала
+                    }
+                    
+                    # Обновляем только статус в БД
+                    freeze_query = f"""
+                        UPDATE wms_bot.shift_tasks
+                        SET status = 'Заморожено'
+                        WHERE id = {task_id}
+                    """
+                    
+                    SQL.sql_delete('wms', freeze_query)
+                
+            # Если по какой-то причине не удалось обработать задания по одному, делаем общее обновление
+            check_query = f"""
+                SELECT COUNT(*) as count
+                FROM wms_bot.shift_tasks
                 WHERE user_id = '{staff_id}'
                   AND status IN ('Выполняется', 'На доработке')
                   AND merchant_code = '{MERCHANT_ID}'
             """
             
-            SQL.sql_delete('wms', freeze_query)
+            remaining_tasks = SQL.sql_select('wms', check_query)
+            if not remaining_tasks.empty and remaining_tasks.iloc[0]['count'] > 0:
+                # Получаем оставшиеся задания
+                remaining_tasks_df = SQL.sql_select('wms', f"""
+                    SELECT id, time_begin
+                    FROM wms_bot.shift_tasks
+                    WHERE user_id = '{staff_id}'
+                      AND status IN ('Выполняется', 'На доработке')
+                      AND merchant_code = '{MERCHANT_ID}'
+                """)
+                
+                # Обрабатываем каждое задание
+                for _, task in remaining_tasks_df.iterrows():
+                    task_id = int(task['id'])
+                    time_begin = task['time_begin']
+                    
+                    # Вычисляем прошедшее время
+                    elapsed_seconds = 0
+                    if time_begin:
+                        try:
+                            # Преобразуем строку в datetime
+                            if isinstance(time_begin, str):
+                                time_begin = datetime.strptime(time_begin, '%Y-%m-%d %H:%M:%S')
+                            
+                            # Если это time объект, преобразуем его в datetime
+                            if hasattr(time_begin, 'hour') and not hasattr(time_begin, 'year'):
+                                # Это объект time, преобразуем его в datetime
+                                today = datetime.today().date()
+                                time_begin = datetime.combine(today, time_begin)
+                            
+                            # Теперь можем безопасно вычислить разницу
+                            elapsed_seconds = int((now - time_begin).total_seconds())
+                        except Exception as e:
+                            print(f"Ошибка при вычислении прошедшего времени в remaining_tasks: {e}")
+                            # Используем безопасный метод вычисления
+                            if hasattr(time_begin, 'hour'):
+                                # Если это time объект
+                                current_time = now.time()
+                                # Вычисляем разницу в секундах
+                                elapsed_seconds = (current_time.hour - time_begin.hour) * 3600 + \
+                                                 (current_time.minute - time_begin.minute) * 60 + \
+                                                 (current_time.second - time_begin.second)
+                                # Если получилось отрицательное значение, значит прошли сутки
+                                if elapsed_seconds < 0:
+                                    elapsed_seconds += 24 * 3600
+                    
+                    # Получаем информацию о задании для расчета оставшегося времени
+                    task_info = SQL.sql_select('wms', f"""
+                        SELECT task_duration FROM wms_bot.shift_tasks WHERE id = {task_id}
+                    """)
+                    
+                    full_duration = 0
+                    if not task_info.empty:
+                        # Парсим время выполнения
+                        try:
+                            from ...utils.task_utils import parse_task_duration
+                            full_duration = parse_task_duration(task_info.iloc[0]['task_duration'])
+                        except Exception as e:
+                            full_duration = 900  # По умолчанию 15 минут
+                    
+                    # Вычисляем оставшееся время
+                    remaining_seconds = max(0, full_duration - elapsed_seconds)
+                    
+                    # Сохраняем информацию в глобальное хранилище
+                    frozen_tasks_info[task_id] = {
+                        'freeze_time': now,
+                        'elapsed_seconds': elapsed_seconds,
+                        'original_start_time': time_begin if isinstance(time_begin, datetime) else now - timedelta(seconds=elapsed_seconds),
+                        'remaining_seconds': remaining_seconds,
+                        'allocated_seconds': int(elapsed_seconds + remaining_seconds)
+                    }
+                
+                # Обновляем статус в БД
+                freeze_query = f"""
+                    UPDATE wms_bot.shift_tasks
+                    SET status = 'Заморожено'
+                    WHERE user_id = '{staff_id}'
+                      AND status IN ('Выполняется', 'На доработке')
+                      AND merchant_code = '{MERCHANT_ID}'
+                """
+                
+                SQL.sql_delete('wms', freeze_query)
             
             # 3. Останавливаем таймеры для замороженных заданий
             for _, task in active_tasks_df.iterrows():
@@ -54,7 +221,7 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
                 except Exception as e:
                     pass
                 
-                frozen_tasks_info.append({
+                frozen_tasks_list.append({
                     'id': task['id'],
                     'name': task['task_name'],
                     'status': task['status']
@@ -85,7 +252,7 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
         
         return {
             'success': True,
-            'frozen_tasks': frozen_tasks_info,
+            'frozen_tasks': frozen_tasks_list,
             'special_task': special_task_info
         }
         

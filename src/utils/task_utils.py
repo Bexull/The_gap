@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 import datetime as dt
 from telegram import InputMediaPhoto
-from ..config.settings import ZS_GROUP_CHAT_ID, TOPIC_IDS
+from ..config.settings import ZS_GROUP_CHAT_ID, TOPIC_IDS, frozen_tasks_info, task_time_tracker
 from ..keyboards.opv_keyboards import get_task_keyboard
 from ..keyboards.zs_keyboards import get_zs_review_keyboard
+from ..utils.time_utils import align_seconds, seconds_to_hms
 
 def get_topic_id(sector: str) -> int:
     """Получает ID топика для сектора с обработкой различных вариантов названий"""
@@ -20,7 +21,6 @@ def get_topic_id(sector: str) -> int:
     # Попробуем найти частичное соответствие
     for topic_sector, topic_id in TOPIC_IDS.items():
         if sector_normalized in topic_sector or topic_sector in sector_normalized:
-            print(f"🔍 Найдено частичное соответствие: '{sector_normalized}' -> '{topic_sector}' (ID: {topic_id})")
             return topic_id
     
     print(f"⚠️ Топик для сектора '{sector_normalized}' не найден в TOPIC_IDS: {list(TOPIC_IDS.keys())}")
@@ -85,7 +85,36 @@ async def send_task_to_zs(context, task: dict, photos: list):
         sector = context.user_data.get('sector', '').strip().capitalize()
         thread_id = get_topic_id(sector)
 
-        time_spent = datetime.now() - task['assigned_time']
+        # Получаем правильное время начала для вычисления времени выполнения
+        task_id = task.get('task_id')
+        start_time_for_calculation = task['assigned_time']
+        
+        # Проверяем, есть ли информация о замороженном задании
+        from ..config.settings import frozen_tasks_info
+        if task_id and task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
+            original_start_time = frozen_tasks_info[task_id]['original_start_time']
+            if isinstance(original_start_time, datetime):
+                start_time_for_calculation = original_start_time
+                print(f"🔧 [FIX] Используем original_start_time для вычисления времени выполнения задания {task_id}: {start_time_for_calculation}")
+            else:
+                print(f"⚠️ [WARNING] original_start_time для задания {task_id} не является datetime объектом: {type(original_start_time)}")
+        else:
+            print(f"ℹ️ [INFO] Используем assigned_time для вычисления времени выполнения задания {task_id}: {start_time_for_calculation}")
+        
+        tracker_entry = task_time_tracker.get(task_id)
+        if tracker_entry:
+            elapsed_seconds = tracker_entry.get('elapsed_seconds', 0)
+        elif task_id and task_id in frozen_tasks_info:
+            freeze_meta = frozen_tasks_info[task_id]
+            elapsed_seconds = freeze_meta.get('elapsed_seconds', 0)
+        else:
+            elapsed_seconds = (datetime.now() - start_time_for_calculation).total_seconds()
+
+        elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
+        time_spent = timedelta(seconds=elapsed_seconds)
+        
+        # Добавляем логирование для отладки
+        print(f"⏰ [DEBUG] Время выполнения для задания {task_id}: {time_spent} (начало: {start_time_for_calculation}, текущее: {datetime.now()})")
 
         message = (
             f"📬 Задание от *{context.user_data.get('staff_name', 'ОПВ')}* завершено\n"
@@ -264,3 +293,52 @@ def parse_task_duration(duration_raw) -> int:
     except Exception as e:
         print(f"❌ Ошибка парсинга времени: {e}")
         return 900  # дефолт 15 минут
+
+def get_task_remaining_time(task_id, task_duration):
+    """
+    Получает выделенное время для задания с учетом возможной заморозки.
+    
+    Args:
+        task_id: ID задания
+        task_duration: Строка с длительностью задания (например, "15 мин")
+        
+    Returns:
+        tuple: (allocated_seconds, elapsed_seconds) - выделенное время в секундах и прошедшее время
+    """
+    # Получаем полную длительность задания
+    full_duration = parse_task_duration(task_duration)
+    
+    # По умолчанию используем полную длительность
+    allocated_seconds = full_duration
+    elapsed_seconds = 0
+    
+    # Если есть информация о замороженном задании, используем ее
+    if task_id in frozen_tasks_info:
+        # Используем сохраненное выделенное время (allocated_seconds), а не remaining_seconds
+        allocated_seconds = frozen_tasks_info[task_id].get('allocated_seconds', full_duration)
+        elapsed_seconds = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
+        print(f"🔧 [DEBUG] Восстановление из frozen_tasks_info для задания {task_id}: allocated={allocated_seconds}s, elapsed={elapsed_seconds}s")
+    
+    return allocated_seconds, elapsed_seconds
+
+def format_task_time_info(total_seconds, elapsed_seconds):
+    """
+    Форматирует информацию о времени задания для отображения.
+    
+    Args:
+        total_seconds: Оставшееся время в секундах
+        elapsed_seconds: Прошедшее время в секундах
+        
+    Returns:
+        tuple: (remaining_time_str, elapsed_info) - строка с оставшимся временем и информация о прошедшем времени
+    """
+    # Форматируем оставшееся время
+    remaining_time = str(timedelta(seconds=total_seconds)).split('.')[0]
+    
+    # Если прошедшее время больше 0, готовим информацию о нем
+    elapsed_info = ""
+    if elapsed_seconds > 0:
+        elapsed_time = str(timedelta(seconds=elapsed_seconds)).split('.')[0]
+        elapsed_info = f"\n⏱ Уже затрачено: {elapsed_time}"
+    
+    return remaining_time, elapsed_info

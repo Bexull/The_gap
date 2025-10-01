@@ -9,6 +9,7 @@ from ...utils.task_utils import send_task_to_zs
 from ...keyboards.opv_keyboards import get_photo_upload_keyboard, get_task_keyboard
 from .special_task_completion import complete_special_task_directly
 from .task_restoration import restore_frozen_task_if_needed
+from ...utils.time_utils import align_seconds
 
 
 async def complete_task_inline(update: Update, context: CallbackContext):
@@ -47,15 +48,26 @@ async def complete_task_inline(update: Update, context: CallbackContext):
         row = task_df.iloc[0]
         time_begin_value = row['time_begin']
 
-        # Если это строка — парсим в time
-        if isinstance(time_begin_value, str):
-            time_begin_value = datetime.strptime(time_begin_value, '%H:%M:%S').time()
+        try:
+            # Если это строка — парсим в datetime
+            if isinstance(time_begin_value, str):
+                # Пробуем разные форматы
+                try:
+                    # Полный формат с датой и временем
+                    time_begin_value = datetime.strptime(time_begin_value, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    # Только время
+                    time_begin_value = datetime.strptime(time_begin_value, '%H:%M:%S').time()
 
-        # Если это time — комбинируем с сегодняшней датой
-        if isinstance(time_begin_value, dt.time):
-            assigned_time = datetime.combine(datetime.today(), time_begin_value)
-        else:
-            assigned_time = pd.to_datetime(time_begin_value)
+            # Если это time — комбинируем с сегодняшней датой
+            if isinstance(time_begin_value, dt.time):
+                assigned_time = datetime.combine(datetime.today(), time_begin_value)
+            else:
+                assigned_time = pd.to_datetime(time_begin_value)
+        except Exception as e:
+            print(f"Ошибка при обработке time_begin_value: {e}")
+            # Используем текущее время как запасной вариант
+            assigned_time = datetime.now()
 
         now = datetime.now()
 
@@ -67,7 +79,6 @@ async def complete_task_inline(update: Update, context: CallbackContext):
             'provider': row.get('provider', 'Не указан'),
             'assigned_time': assigned_time,
             'duration': row['task_duration'],
-            'assigned_time': now,
             'priority': row.get('priority', '1')
         }
         context.user_data['task'] = task
@@ -102,7 +113,27 @@ async def complete_task_inline(update: Update, context: CallbackContext):
 
     # Завершаем задание
     now = datetime.now()
-    time_spent = now - task['assigned_time']
+    
+    # Проверяем, было ли задание заморожено и восстановлено
+    from ...config.settings import frozen_tasks_info, task_time_tracker
+    
+    task_id = task['task_id']
+    
+    tracker_entry = task_time_tracker.get(task_id)
+    
+    if tracker_entry:
+        elapsed_seconds = tracker_entry.get('elapsed_seconds', 0)
+    elif task_id in frozen_tasks_info:
+        freeze_meta = frozen_tasks_info[task_id]
+        elapsed_before_freeze = freeze_meta.get('elapsed_seconds', 0)
+        time_after_restore = (now - task['assigned_time']).total_seconds()
+        elapsed_seconds = max(0, elapsed_before_freeze + time_after_restore)
+        print(f"⏰ Задание {task_id}: elapsed_before_freeze={elapsed_before_freeze}s, after_restore={time_after_restore}s, total={elapsed_seconds}s")
+    else:
+        elapsed_seconds = (now - task['assigned_time']).total_seconds()
+    
+    elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
+    time_spent = timedelta(seconds=elapsed_seconds)
 
     try:
         # Обновляем статус и время окончания
@@ -117,6 +148,11 @@ async def complete_task_inline(update: Update, context: CallbackContext):
         await query.edit_message_text("✅ Задание отправлено на проверку заведующему.")
         await send_task_to_zs(context, task, context.user_data['photos'])
 
+        # Очищаем данные о задании из глобального хранилища
+        if task_id in frozen_tasks_info:
+            del frozen_tasks_info[task_id]
+            print(f"🧹 Удалены данные о замороженном задании {task_id} из глобального хранилища")
+        
         # Очищаем контекст
         context.user_data.pop('task', None)
         context.user_data.pop('photos', None)
@@ -263,15 +299,26 @@ async def complete_the_task(update: Update, context: CallbackContext):
     row = task_df.iloc[0]
     time_begin_value = row['time_begin']
 
-    # Если это строка — парсим в time
-    if isinstance(time_begin_value, str):
-        time_begin_value = datetime.strptime(time_begin_value, '%H:%M:%S').time()
+    try:
+        # Если это строка — парсим в datetime
+        if isinstance(time_begin_value, str):
+            # Пробуем разные форматы
+            try:
+                # Полный формат с датой и временем
+                time_begin_value = datetime.strptime(time_begin_value, '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                # Только время
+                time_begin_value = datetime.strptime(time_begin_value, '%H:%M:%S').time()
 
-    # Если это time — комбинируем с сегодняшней датой
-    if isinstance(time_begin_value, dt.time):
-        assigned_time = datetime.combine(datetime.today(), time_begin_value)
-    else:
-        assigned_time = pd.to_datetime(time_begin_value)
+        # Если это time — комбинируем с сегодняшней датой
+        if isinstance(time_begin_value, dt.time):
+            assigned_time = datetime.combine(datetime.today(), time_begin_value)
+        else:
+            assigned_time = pd.to_datetime(time_begin_value)
+    except Exception as e:
+        print(f"Ошибка при обработке time_begin_value в complete_the_task: {e}")
+        # Используем текущее время как запасной вариант
+        assigned_time = datetime.now()
 
     now = datetime.now()
 
@@ -283,7 +330,6 @@ async def complete_the_task(update: Update, context: CallbackContext):
         'provider': row.get('provider', 'Не указан'),
         'assigned_time': assigned_time,
         'duration': row['task_duration'],
-        'assigned_time': now,
         'priority': row.get('priority', '1')
     }
     context.user_data['task'] = task
@@ -330,7 +376,27 @@ async def complete_the_task(update: Update, context: CallbackContext):
 
     # Завершаем обычное задание
     now = datetime.now()
-    time_spent = now - task['assigned_time']
+    
+    # Проверяем, было ли задание заморожено и восстановлено
+    from ...config.settings import frozen_tasks_info, task_time_tracker
+    task_id = task['task_id']
+    
+    # Если задание было заморожено, используем оригинальное время начала
+    if task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
+        original_start_time = frozen_tasks_info[task_id]['original_start_time']
+        elapsed_before_freeze = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
+        
+        # Вычисляем время выполнения после восстановления
+        time_after_restore = (now - task['assigned_time']).total_seconds()
+        
+        # Общее время выполнения = время до заморозки + время после восстановления
+        total_time_seconds = elapsed_before_freeze + time_after_restore
+        time_spent = timedelta(seconds=total_time_seconds)
+        
+        print(f"⏰ Задание {task_id}: время до заморозки {elapsed_before_freeze}с + время после восстановления {time_after_restore}с = {total_time_seconds}с")
+    else:
+        # Если задание не было заморожено, используем стандартное вычисление времени
+        time_spent = now - task['assigned_time']
 
     try:
         # Обновляем статус и время окончания
@@ -345,6 +411,11 @@ async def complete_the_task(update: Update, context: CallbackContext):
         await update.message.reply_text("✅ Задание отправлено на проверку заведующему.")
         await send_task_to_zs(context, task, context.user_data['photos'])
 
+        # Очищаем данные о задании из глобального хранилища
+        if task_id in frozen_tasks_info:
+            del frozen_tasks_info[task_id]
+            print(f"🧹 Удалены данные о замороженном задании {task_id} из глобального хранилища")
+        
         # Очищаем контекст
         context.user_data.pop('task', None)
         context.user_data.pop('photos', None)

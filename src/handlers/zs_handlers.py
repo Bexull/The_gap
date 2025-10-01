@@ -1,3 +1,4 @@
+import asyncio
 import pandas as pd
 from datetime import datetime, timedelta
 import datetime as dt
@@ -27,7 +28,6 @@ def safe_update_user_data(application, user_id, updates):
         
         return True
     except Exception as e:
-        print(f"⚠️ Ошибка при обновлении user_data для {user_id}: {e}")
         return False
 
 
@@ -182,7 +182,6 @@ async def handle_review(update: Update, context: CallbackContext):
 
     now = datetime.now()
     
-    print(f"🔍 handle_review: action={action}, task_id={task_id}, opv_id={opv_id}")
 
     if action == 'approve':
         # Получаем имя инспектора
@@ -292,7 +291,6 @@ async def start_reject_reason(update: Update, context: CallbackContext):
         'reject_opv_id': opv_id
     })
     
-    print(f"🔍 ЗС {update.effective_user.id} начал возврат задания {task_num} для ОПВ {opv_id}")
 
     # Отправляем отдельное сообщение с ForceReply для запроса причины
     try:
@@ -321,33 +319,24 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
     task_id = context.user_data.get('reject_task_id')
     opv_id = context.user_data.get('reject_opv_id')
     
-    print(f"🔍 receive_reject_reason ВЫЗВАНА: пользователь {user_id}")
-    print(f"🔍 task_id={task_id}, opv_id={opv_id}")
-    print(f"🔍 Текст сообщения: '{update.message.text}'")
-    print(f"🔍 Весь контекст пользователя: {context.user_data}")
     
     # КРИТИЧЕСКИ ВАЖНО: проверяем, что это именно ЗС, который ждет ввода причины
     if not task_id or not opv_id:
-        print(f"🔍 Нет reject_task_id или reject_opv_id для пользователя {user_id}, пропускаем")
         return  # Просто игнорируем сообщение
     
     # Дополнительная проверка: если сообщение начинается с команды, игнорируем
     message_text = update.message.text.strip() if update.message.text else ""
     if message_text.startswith('/') or len(message_text) < 3:
-        print(f"🔍 Сообщение похоже на команду или слишком короткое, пропускаем: {message_text}")
         return
     
     reason = message_text
-    print(f"🔍 Обрабатываем возврат задания {task_id} с причиной: {reason}")
 
     try:
-        print(f"🔍 Начинаем обработку возврата...")
         
         # Сначала отправляем подтверждение ЗС
         await update.message.reply_text(f"⏳ Обрабатываю возврат задания №{task_id}...")
         
         # Проверяем, что задание существует
-        print(f"🔍 Проверяем существование задания {task_id}")
         task_check_df = SQL.sql_select('wms', f"""
             SELECT id, user_id, status FROM wms_bot.shift_tasks WHERE id = {task_id}
         """)
@@ -372,7 +361,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
 
         # Обновляем статус с экранированием кавычек
         escaped_reason = reason.replace("'", "''")
-        print(f"🔍 Обновляем статус задания на 'На доработке'")
         
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
@@ -383,7 +371,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         print(f"✅ Статус обновлен")
 
         # Получаем данные задания для уведомления
-        print(f"🔍 Получаем данные задания для уведомления")
         task_df = SQL.sql_select('wms', f"""
             SELECT user_id, task_name, slot, time_begin, task_duration, product_group
             FROM wms_bot.shift_tasks
@@ -399,10 +386,8 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
 
         row = task_df.iloc[0]
         opv_employee_id = row['user_id']
-        print(f"🔍 ID сотрудника из задания: {opv_employee_id}")
 
         # Получаем Telegram ID сотрудника
-        print(f"🔍 Получаем Telegram ID для employee_id {opv_employee_id}")
         opv_userid_df = SQL.sql_select('wms', f"""
             SELECT userid FROM wms_bot.bot_auth WHERE employee_id = '{opv_employee_id}'
         """)
@@ -432,6 +417,15 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         now = datetime.now()
         remaining_seconds = max(0, int((deadline - now).total_seconds()))
 
+        from ..utils.time_utils import align_seconds, seconds_to_hms
+        remaining_seconds = align_seconds(remaining_seconds, mode='ceil')
+        total_duration = align_seconds(total_duration, mode='ceil')
+
+        elapsed_seconds = total_duration - remaining_seconds
+        print(
+            f"🕒 [RESTORE] task_id={task_id} return elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(remaining_seconds)}"
+        )
+
         # Формируем сообщение для ОПВ
         message = (
             f"⚠️ Задание №{task_id} вернули на доработку.\n"
@@ -440,23 +434,56 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             f"📍 *Слот:* {row['slot']}\n"
             f"📝 *Наименование:* {row['task_name']}\n"
             f"📦 *Группа товаров:* {row.get('product_group', '—')}\n"
-            f"⏱ *Выделенное время:* {str(timedelta(seconds=total_duration))}\n"
-            f"⏳ *Оставшееся время:* {str(timedelta(seconds=remaining_seconds))}"
+            f"⏱ *Выделенное время:* {seconds_to_hms(total_duration)}\n"
+            f"⏳ *Оставшееся время:* {seconds_to_hms(remaining_seconds)}"
         )
         
 
-        print(f"🔍 Отправляем сообщение ОПВ {opv_user_id}")
-        print(f"🔍 Текст сообщения: {message}")
 
         # Отправляем уведомление ОПВ
         try:
-            await context.bot.send_message(
+            sent_message = await context.bot.send_message(
                 chat_id=opv_user_id,
                 text=message,
                 parse_mode='Markdown',
                 reply_markup=get_task_keyboard()
             )
             print(f"✅ Сообщение о возврате отправлено ОПВ {opv_user_id}")
+
+            from ..config.settings import active_timers, frozen_tasks_info
+            from ..handlers.task_handlers import update_timer
+
+            frozen_tasks_info[task_id] = {
+                'freeze_time': datetime.now(),
+                'elapsed_seconds': align_seconds(elapsed_seconds, mode='round'),
+                'remaining_seconds': remaining_seconds,
+                'original_start_time': assigned_time,
+                'allocated_seconds': total_duration
+            }
+
+            if task_id in active_timers:
+                del active_timers[task_id]
+
+            task_payload = {
+                'task_id': task_id,
+                'task_name': row['task_name'],
+                'product_group': row.get('product_group', '—'),
+                'slot': row['slot'],
+                'provider': row.get('provider', 'Не указан'),
+                'duration': seconds_to_hms(total_duration)
+            }
+
+            asyncio.create_task(
+                update_timer(
+                    context,
+                    sent_message.chat_id,
+                    sent_message.message_id,
+                    task_payload,
+                    total_duration,
+                    get_task_keyboard()
+                )
+            )
+            print(f"🕒 [RESTORE] timer restarted via return for task_id={task_id} remaining={seconds_to_hms(remaining_seconds)}")
         except Exception as e:
             print(f"❌ Ошибка при отправке сообщения о возврате ОПВ {opv_user_id}: {e}")
             # Отправляем уведомление в группу ЗС
@@ -502,7 +529,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         first_message_id = context.user_data.get('last_task_message_id')
         if first_message_id:
             try:
-                print(f"🔍 Обновляем сообщение в групповом чате, message_id: {first_message_id}")
                 await context.bot.edit_message_caption(
                     chat_id=ZS_GROUP_CHAT_ID,
                     message_id=first_message_id,
@@ -520,7 +546,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
 
     finally:
         # ВАЖНО: ВСЕГДА очищаем контекст ЗС после обработки
-        print(f"🔍 Очищаем контекст ЗС для пользователя {user_id}")
         context.user_data.pop('reject_task_id', None)
         context.user_data.pop('reject_opv_id', None)
         print(f"✅ Контекст ЗС очищен")

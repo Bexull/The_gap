@@ -51,7 +51,6 @@ async def schedule_tasks_from_rules(context):
         
         # Отладочная информация - показываем первые несколько заданий
         if not schedule_df.empty:
-            print("🔍 Примеры найденных заданий:")
             for idx, task in schedule_df.head(3).iterrows():
                 task_name = task.get('task_name', 'Неизвестное')
                 start_time = task.get('start_time', 'Неизвестно')
@@ -115,6 +114,7 @@ async def schedule_tasks_from_rules(context):
         print(f"🔄 После удаления дубликатов: {len(due_tasks)} уникальных заданий")
 
         total_assigned = 0
+        assigned_opv_ids = set()  # Отслеживаем ОПВ, которым уже назначили задания в этой итерации
         
         for _, task_row in due_tasks.iterrows():
             # Безопасное получение названия задания
@@ -154,6 +154,12 @@ async def schedule_tasks_from_rules(context):
             # Подбираем ОПВ на смене
             # Для спец-заданий ищем ОПВ, у которых НЕТ других спец-заданий в статусе 'Выполняется'
             # Обычные задания (is_constant_task = true) НЕ блокируют назначение спец-заданий
+            # ИСПРАВЛЕНИЕ: исключаем ОПВ, которым уже назначили задания в этой итерации
+            assigned_opv_filter = ""
+            if assigned_opv_ids:
+                assigned_ids_str = ','.join([f"'{opv_id}'" for opv_id in assigned_opv_ids])
+                assigned_opv_filter = f"AND ss.employee_id NOT IN ({assigned_ids_str})"
+            
             opv_df = SQL.sql_select('wms', f"""
                 SELECT DISTINCT ss.employee_id, bs.gender, concat(bs."name", ' ', bs.surname) AS fio, ba.userid
                 FROM wms_bot.shift_sessions1 ss
@@ -164,6 +170,7 @@ async def schedule_tasks_from_rules(context):
                   AND ss.role = 'opv'
                   AND ss.shift_type = '{shift_en}'
                   AND ss.merchantid = {MERCHANT_ID}
+                  {assigned_opv_filter}
                   AND NOT EXISTS (
                       SELECT 1
                       FROM wms_bot.shift_tasks st
@@ -234,7 +241,6 @@ async def schedule_tasks_from_rules(context):
                 print(f"    👤 Назначаем ОПВ #{idx+1}: {opv_name} (ID: {opv_id})")
                 
                 # Получаем активные задания ОПВ перед заморозкой
-                print(f"      🔍 Проверяем активные задания ОПВ {opv_name}")
                 
                 # Пробуем оба варианта запросов (строковый и числовой)
                 try:
@@ -276,6 +282,56 @@ async def schedule_tasks_from_rules(context):
                     """)
                 else:
                     print(f"      ✅ Нет активных заданий для заморозки")
+                
+                # Сохраняем информацию о замороженных заданиях для восстановления
+                from ..config.settings import frozen_tasks_info
+                for _, task_row in active_tasks_df.iterrows():
+                    task_id = int(task_row['id'])
+                    
+                    # Получаем время начала задания для сохранения original_start_time
+                    task_time_info = SQL.sql_select('wms', f"""
+                        SELECT time_begin, task_duration FROM wms_bot.shift_tasks
+                        WHERE id = {task_id}
+                    """)
+                    
+                    if not task_time_info.empty:
+                        time_begin = task_time_info.iloc[0]['time_begin']
+                        task_duration = task_time_info.iloc[0]['task_duration']
+                        
+                        # Вычисляем прошедшее и оставшееся время
+                        elapsed_seconds = 0
+                        original_start_time = now  # По умолчанию текущее время
+                        
+                        if time_begin:
+                            try:
+                                if isinstance(time_begin, str):
+                                    time_begin = datetime.strptime(time_begin, '%Y-%m-%d %H:%M:%S')
+                                elif hasattr(time_begin, 'hour') and not hasattr(time_begin, 'year'):
+                                    today = datetime.today().date()
+                                    time_begin = datetime.combine(today, time_begin)
+                                
+                                original_start_time = time_begin
+                                elapsed_seconds = int((now - time_begin).total_seconds())
+                            except Exception as e:
+                                print(f"      ⚠️ Ошибка при вычислении времени: {e}")
+                        
+                        # Парсим длительность задания
+                        try:
+                            from ..utils.task_utils import parse_task_duration
+                            full_duration = parse_task_duration(task_duration)
+                        except Exception:
+                            full_duration = 900
+                        
+                        remaining_seconds = max(0, full_duration - elapsed_seconds)
+                        
+                        # Сохраняем информацию о замороженном задании
+                        frozen_tasks_info[task_id] = {
+                            'freeze_time': now,
+                            'elapsed_seconds': elapsed_seconds,
+                            'remaining_seconds': remaining_seconds,
+                            'allocated_seconds': int(elapsed_seconds + remaining_seconds),
+                            'original_start_time': original_start_time
+                        }
                 
                 # Останавливаем таймеры и отправляем уведомления о заморозке
                 for _, task_row in active_tasks_df.iterrows():
@@ -416,6 +472,9 @@ async def schedule_tasks_from_rules(context):
                     except Exception:
                         print(f"      ❌ Ошибка отправки уведомления")
                 total_assigned += 1
+                
+                # ИСПРАВЛЕНИЕ: добавляем ОПВ в список назначенных
+                assigned_opv_ids.add(str(opv['employee_id']))
                 
                 # Удаляем из кэша, так как задание успешно назначено
                 if cache_key in _no_opv_cache:

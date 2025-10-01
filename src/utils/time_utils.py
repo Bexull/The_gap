@@ -1,4 +1,31 @@
+import math
 from datetime import datetime, timedelta, time
+
+TIMER_TICK_SECONDS = 15
+
+
+def seconds_to_hms(total_seconds: int) -> str:
+    total_seconds = max(0, int(total_seconds))
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def align_seconds(seconds: float, step: int = TIMER_TICK_SECONDS, mode: str = 'floor') -> int:
+    """Выравнивает секунды к заданному шагу (floor/ceil/round)."""
+
+    if step <= 0:
+        return int(max(0, seconds))
+
+    seconds = max(0.0, float(seconds))
+
+    if mode == 'ceil':
+        return int(math.ceil(seconds / step) * step)
+    if mode == 'round':
+        return int(round(seconds / step) * step)
+
+    return int(math.floor(seconds / step) * step)
 
 def get_current_slot(shift: str) -> int:
     """Определяет текущий временной слот для смены"""
