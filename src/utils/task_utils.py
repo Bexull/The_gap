@@ -305,6 +305,9 @@ def get_task_remaining_time(task_id, task_duration):
     Returns:
         tuple: (allocated_seconds, elapsed_seconds) - выделенное время в секундах и прошедшее время
     """
+    from ..database.sql_client import SQL
+    from ..config.settings import MERCHANT_ID
+    
     # Получаем полную длительность задания
     full_duration = parse_task_duration(task_duration)
     
@@ -312,12 +315,42 @@ def get_task_remaining_time(task_id, task_duration):
     allocated_seconds = full_duration
     elapsed_seconds = 0
     
-    # Если есть информация о замороженном задании, используем ее
+    # Если есть информация о замороженном задании в памяти, используем ее
     if task_id in frozen_tasks_info:
         # Используем сохраненное выделенное время (allocated_seconds), а не remaining_seconds
         allocated_seconds = frozen_tasks_info[task_id].get('allocated_seconds', full_duration)
         elapsed_seconds = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
-        print(f"🔧 [DEBUG] Восстановление из frozen_tasks_info для задания {task_id}: allocated={allocated_seconds}s, elapsed={elapsed_seconds}s")
+        print(f"🔧 [DEBUG] Восстановление из frozen_tasks_info (память) для задания {task_id}: allocated={allocated_seconds}s, elapsed={elapsed_seconds}s")
+    else:
+        # Если данных нет в памяти, пробуем прочитать freeze_time из БД
+        try:
+            freeze_df = SQL.sql_select('wms', f"""
+                SELECT freeze_time FROM wms_bot.shift_tasks
+                WHERE id = {task_id} AND merchant_code = '{MERCHANT_ID}'
+            """)
+            
+            if not freeze_df.empty and freeze_df.iloc[0]['freeze_time']:
+                freeze_time_raw = freeze_df.iloc[0]['freeze_time']
+                
+                # Парсим freeze_time (формат HH:MM:SS или timedelta)
+                if isinstance(freeze_time_raw, str):
+                    time_parts = freeze_time_raw.split(':')
+                    if len(time_parts) >= 2:
+                        hours = int(time_parts[0])
+                        minutes = int(time_parts[1])
+                        seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                        elapsed_seconds = hours * 3600 + minutes * 60 + seconds
+                elif hasattr(freeze_time_raw, 'total_seconds'):
+                    # Это timedelta
+                    elapsed_seconds = int(freeze_time_raw.total_seconds())
+                elif hasattr(freeze_time_raw, 'hour'):
+                    # Это time объект
+                    elapsed_seconds = freeze_time_raw.hour * 3600 + freeze_time_raw.minute * 60 + freeze_time_raw.second
+                
+                allocated_seconds = full_duration
+                print(f"🔧 [DEBUG] Восстановление из БД (freeze_time) для задания {task_id}: allocated={allocated_seconds}s, elapsed={elapsed_seconds}s")
+        except Exception as e:
+            print(f"⚠️ [WARNING] Ошибка чтения freeze_time из БД для задания {task_id}: {e}")
     
     return allocated_seconds, elapsed_seconds
 

@@ -19,6 +19,9 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
     query = update.callback_query
     staff_id = context.user_data.get('staff_id')
     
+    # Импортируем глобальное хранилище в начале функции
+    from ...config.settings import frozen_tasks_info
+    
     try:
         now = datetime.now()
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -82,6 +85,9 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
             
             # Перезапускаем таймер для восстановленного задания
             try:
+                # Импортируем утилиты для работы со временем
+                from ...utils.time_utils import align_seconds, seconds_to_hms
+                
                 # Получаем данные задания для таймера
                 task_data = {
                     'task_id': frozen_task['id'],
@@ -90,9 +96,6 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                     'slot': frozen_task['slot'],
                     'duration': frozen_task['task_duration']
                 }
-                
-                # Импортируем глобальное хранилище
-                from ...config.settings import frozen_tasks_info
                 
                 # Получаем task_id
                 task_id = int(frozen_task['id'])
@@ -106,7 +109,6 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                     # Используем сохраненное оставшееся время
                     total_seconds = frozen_tasks_info[task_id].get('remaining_seconds', 0)
                     elapsed_seconds = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
-                    from ...utils.time_utils import align_seconds, seconds_to_hms
                     total_seconds = align_seconds(total_seconds, mode='ceil')
                     elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
 
@@ -161,7 +163,7 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                     # Добавляем логи перед запуском таймера
                     
                     # Проверяем, есть ли уже активный таймер для этого задания
-                    from ...config.settings import active_timers, frozen_tasks_info
+                    from ...config.settings import active_timers
                     if task_id in active_timers:
                         print(f"⚠️ [WARNING] Таймер для задания {task_id} уже запущен, пропускаем повторный запуск")
                     else:
