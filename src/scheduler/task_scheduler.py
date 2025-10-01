@@ -192,36 +192,33 @@ async def schedule_tasks_from_rules(context):
                 opv_id = opv.get('employee_id', 'Неизвестный')
                 
                 # Получаем активные задания ОПВ перед заморозкой
+                employee_id_int = int(opv['employee_id'])
                 
-                # Пробуем оба варианта запросов (строковый и числовой)
-                try:
-                    # Числовой вариант
-                    active_tasks_df = SQL.sql_select('wms', f"""
-                        SELECT id, task_name, status FROM wms_bot.shift_tasks
-                        WHERE user_id = {int(opv['employee_id'])}
-                        AND status IN ('Выполняется')
-                        AND time_end IS NULL
-                        AND merchant_code = '{MERCHANT_ID}'
-                    """)
-                except Exception:
-                    # Строковый вариант
-                    active_tasks_df = SQL.sql_select('wms', f"""
-                        SELECT id, task_name, status FROM wms_bot.shift_tasks
-                        WHERE user_id = '{opv['employee_id']}'
-                        AND status IN ('Выполняется')
-                        AND time_end IS NULL
-                        AND merchant_code = '{MERCHANT_ID}'
-                    """)
+                # Получаем константные задания для заморозки
+                # Для "На доработке" time_end может быть заполнен, поэтому проверяем по-разному
+                active_tasks_df = SQL.sql_select('wms', f"""
+                    SELECT id, task_name, status, user_id, is_constant_task FROM wms_bot.shift_tasks
+                    WHERE user_id::bigint = {employee_id_int}
+                    AND status IN ('Выполняется', 'На доработке')
+                    AND (
+                        (status = 'Выполняется' AND time_end IS NULL) OR
+                        (status = 'На доработке')
+                    )
+                    AND is_constant_task = true
+                    AND merchant_code = '{MERCHANT_ID}'
+                """)
                 
                 # Заморозка активных заданий ОПВ
                 if not active_tasks_df.empty:
-                    
                     SQL.sql_delete('wms', f"""
                         UPDATE wms_bot.shift_tasks
                         SET status = 'Заморожено'
                         WHERE user_id = '{opv['employee_id']}'
-                        AND status IN ('Выполняется')
-                        AND time_end IS NULL
+                        AND status IN ('Выполняется', 'На доработке')
+                        AND (
+                            (status = 'Выполняется' AND time_end IS NULL) OR
+                            (status = 'На доработке')
+                        )
                     """)
                 
                 # Сохраняем информацию о замороженных заданиях для восстановления
@@ -279,15 +276,17 @@ async def schedule_tasks_from_rules(context):
                     task_id = int(task_row['id'])
                     task_name = task_row.get('task_name', 'Неизвестное задание')
                     
+                    # Останавливаем таймер если он есть
                     try:
-                        # Проверяем существование таймера для задания
                         from ..config.settings import active_timers
                         if task_id in active_timers:
-                            # Останавливаем таймер если он есть
                             from ..handlers.task_handlers import stop_timer_for_task
                             await stop_timer_for_task(task_id, context, "задание заморожено из-за спец-задания")
-                            
-                        # Отправляем прямое уведомление в любом случае
+                    except Exception as timer_error:
+                        print(f"⚠️ Ошибка остановки таймера для задания {task_id}: {timer_error}")
+                    
+                    # Отправляем уведомление о заморозке ВСЕГДА, независимо от наличия таймера
+                    try:
                         chat_id = opv['userid']
                         if isinstance(chat_id, pd.Series):
                             chat_id = chat_id.values[0]
@@ -303,8 +302,8 @@ async def schedule_tasks_from_rules(context):
                             ),
                             parse_mode='Markdown'
                         )
-                    except Exception:
-                        pass
+                    except Exception as notify_error:
+                        print(f"❌ Ошибка отправки уведомления о заморозке для задания {task_id}: {notify_error}")
 
                 # Назначаем одну задачу из дубликатов с блокировкой строки (FOR UPDATE)
                 task_to_assign_df = SQL.sql_select('wms', f"""

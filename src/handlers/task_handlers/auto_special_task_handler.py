@@ -213,21 +213,47 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
                 
                 SQL.sql_delete('wms', freeze_query)
             
-            # 3. Останавливаем таймеры для замороженных заданий
+            # 3. Останавливаем таймеры и отправляем уведомления о заморозке
             for _, task in active_tasks_df.iterrows():
                 task_id = int(task['id'])
+                task_name = task.get('task_name', 'Неизвестное задание')
+                
+                # Останавливаем таймер если он есть
                 try:
-                    await stop_timer_for_task(task_id, context, "задание заморожено из-за спец-задания")
+                    from ...config.settings import active_timers
+                    if task_id in active_timers:
+                        await stop_timer_for_task(task_id, context, "задание заморожено из-за спец-задания")
                 except Exception as e:
-                    pass
+                    print(f"⚠️ Ошибка остановки таймера для задания {task_id}: {e}")
+                
+                # Отправляем уведомление о заморозке ВСЕГДА
+                try:
+                    opv_userid_df = SQL.sql_select('wms', f"""
+                        SELECT userid FROM wms_bot.bot_auth WHERE employee_id = '{staff_id}'
+                    """)
+                    
+                    if not opv_userid_df.empty:
+                        opv_user_id = int(opv_userid_df.iloc[0]['userid'])
+                        
+                        await context.bot.send_message(
+                            chat_id=opv_user_id,
+                            text=(
+                                f"❄️ *Задание заморожено!*\n\n"
+                                f"📝 *Наименование:* {task_name}\n"
+                                f"📋 *ID задания:* {task_id}\n\n"
+                                f"Ваше задание было заморожено из-за назначения спец-задания.\n"
+                                f"Вы сможете продолжить его после завершения спец-задания."
+                            ),
+                            parse_mode='Markdown'
+                        )
+                except Exception as notify_error:
+                    print(f"❌ Ошибка отправки уведомления о заморозке для задания {task_id}: {notify_error}")
                 
                 frozen_tasks_list.append({
                     'id': task['id'],
                     'name': task['task_name'],
                     'status': task['status']
                 })
-            
-            # 4. Уведомление о заморозке убрано - показываем только назначение спец-задания
         
         # 5. Назначаем спец-задание
         now = datetime.now()
@@ -257,6 +283,7 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
         }
         
     except Exception as e:
+        print(f"❌ Ошибка при назначении спец-задания {special_task_id}: {e}")
         return {
             'success': False,
             'error': str(e),
