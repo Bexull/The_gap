@@ -29,6 +29,7 @@ def get_free_opv_for_special_tasks():
                   WHERE st.user_id = ss.employee_id::int
                     AND st.status = 'Выполняется'
                     AND st.is_constant_task = false
+                    AND st.priority = 111
                     AND st.time_end IS null
                     AND st.merchant_code = '{MERCHANT_ID}')
         """)
@@ -62,6 +63,7 @@ def get_busy_opv_for_special_tasks():
               AND ss.merchantid = {MERCHANT_ID}
               AND st.status = 'Выполняется'
               AND st.is_constant_task = false
+              AND st.priority = 111
               AND st.time_end IS null
               AND st.merchant_code = '{MERCHANT_ID}'
         """)
@@ -137,6 +139,7 @@ async def force_assign_tasks_by_time(context, start_time_str):
                       WHERE st.user_id = ss.employee_id::int
                         AND st.status = 'Выполняется'
                         AND st.is_constant_task = false
+                        AND st.priority = 111
                         AND st.time_end IS null
                         AND st.merchant_code = '{MERCHANT_ID}')
             """)

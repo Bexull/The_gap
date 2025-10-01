@@ -47,15 +47,6 @@ async def schedule_tasks_from_rules(context):
             print(f"📭 Нет заданий на смену {shift_ru} за {today}")
             return
         
-        print(f"📋 Найдено {len(schedule_df)} заданий на смену {shift_ru} за {today}")
-        
-        # Отладочная информация - показываем первые несколько заданий
-        if not schedule_df.empty:
-            for idx, task in schedule_df.head(3).iterrows():
-                task_name = task.get('task_name', 'Неизвестное')
-                start_time = task.get('start_time', 'Неизвестно')
-                print(f"  📌 {task_name} - start_time: {start_time}")
-
         # Фильтрация по текущему времени с окном в 5 минут
         # Создаем список времен в диапазоне ±5 минут от текущего
         current_hour = now.hour
@@ -80,38 +71,25 @@ async def schedule_tasks_from_rules(context):
             
             time_window.append(f"{target_hour:02d}:{target_minute:02d}")
         
-        print(f"⏰ Окно времени: {time_window[0]} - {time_window[-1]} (текущее: {current_time})")
-        
         # Фильтруем задания в окне времени
         schedule_df['start_time_short'] = schedule_df['start_time'].apply(
             lambda x: x.strftime('%H:%M') if pd.notnull(x) else None
         )
         
-        # Отладочная информация - показываем уникальные времена заданий
-        unique_times = schedule_df['start_time_short'].dropna().unique()
-        print(f"🕐 Уникальные времена заданий: {sorted(unique_times)[:10]}")  # Показываем первые 10
-        
         # Показываем, какие времена попадают в окно
+        unique_times = schedule_df['start_time_short'].dropna().unique()
         times_in_window = [t for t in unique_times if t in time_window]
-        print(f"🎯 Времена в окне: {times_in_window}")
+        if times_in_window:
+            print(f"⏰ Окно: {time_window[0]}-{time_window[-1]} | Времена в окне: {times_in_window}")
 
         due_tasks = schedule_df[schedule_df['start_time_short'].isin(time_window)]
 
         if due_tasks.empty:
-            print(f"📭 Нет заданий в окне времени {time_window[0]}-{time_window[-1]}")
             return
-        
-        print(f"⏰ Найдено {len(due_tasks)} заданий в окне {time_window[0]}-{time_window[-1]}")
-        
-        # Логируем детали найденных заданий
-        for _, task in due_tasks.iterrows():
-            task_name = task.get('task_name', 'Неизвестное')
-            task_time = task.get('start_time_short', 'Неизвестно')
-            print(f"  📌 {task_name} (время: {task_time})")
         
         # Убираем дубликаты заданий по названию и времени
         due_tasks = due_tasks.drop_duplicates(subset=['task_name', 'start_time_short'])
-        print(f"🔄 После удаления дубликатов: {len(due_tasks)} уникальных заданий")
+        print(f"📋 Уникальных заданий для обработки: {len(due_tasks)}")
 
         total_assigned = 0
         assigned_opv_ids = set()  # Отслеживаем ОПВ, которым уже назначили задания в этой итерации
@@ -152,9 +130,9 @@ async def schedule_tasks_from_rules(context):
             print(f"  📊 Найдено {task_count} дублей задания")
 
             # Подбираем ОПВ на смене
-            # Для спец-заданий ищем ОПВ, у которых НЕТ других спец-заданий в статусе 'Выполняется'
+            # Для спец-заданий ищем ОПВ, у которых НЕТ других спец-заданий (priority='111') в статусе 'Выполняется'
             # Обычные задания (is_constant_task = true) НЕ блокируют назначение спец-заданий
-            # ИСПРАВЛЕНИЕ: исключаем ОПВ, которым уже назначили задания в этой итерации
+            # ИСПРАВЛЕНИЕ: исключаем ОПВ, которым уже назначили задания в текущей итерации
             assigned_opv_filter = ""
             if assigned_opv_ids:
                 assigned_ids_str = ','.join([f"'{opv_id}'" for opv_id in assigned_opv_ids])
@@ -177,11 +155,10 @@ async def schedule_tasks_from_rules(context):
                       WHERE st.user_id = ss.employee_id::int
                         AND st.status = 'Выполняется'
                         AND st.is_constant_task = false
+                        AND st.priority = 111
                         AND st.time_end IS null
                         AND st.merchant_code = '{MERCHANT_ID}')
             """)
-
-            print(f"  👥 Найдено {len(opv_df)} свободных ОПВ на смене")
             
             # Отладочная информация - показываем всех ОПВ на смене (не только свободных)
             all_opv_df = SQL.sql_select('wms', f"""
@@ -195,29 +172,6 @@ async def schedule_tasks_from_rules(context):
                   AND ss.shift_type = '{shift_en}'
                   AND ss.merchantid = {MERCHANT_ID}
             """)
-            print(f"  👥 Всего ОПВ на смене: {len(all_opv_df)}")
-            
-            # Показываем занятых ОПВ
-            busy_opv_df = SQL.sql_select('wms', f"""
-                SELECT DISTINCT st.id, st.user_id, concat(bs."name", ' ', bs.surname) AS fio, 
-                       st.task_name, st.is_constant_task, st.priority
-                FROM wms_bot.shift_tasks st
-                JOIN wms_bot.t_staff bs ON bs.id = st.user_id
-                WHERE st.status = 'Выполняется'
-                  AND st.time_end IS null
-                  AND st.merchant_code = '{MERCHANT_ID}'
-                  AND st.task_date = '{today}'
-            """)
-            print(f"  🏃 Занятых ОПВ: {len(busy_opv_df)}")
-            
-            # Показываем детали занятых ОПВ
-            if not busy_opv_df.empty:
-                print(f"  📋 Детали занятых ОПВ:")
-                for _, busy in busy_opv_df.iterrows():
-                    task_type = "Спец-задание" if busy['is_constant_task'] == False else "Обычное задание"
-                    priority = busy.get('priority', 'Не указан')
-                    task_id = busy.get('id', 'Неизвестно')
-                    print(f"    👤 {busy['fio']} - {busy['task_name']} ({task_type}) | ID: {task_id} | Приоритет: {priority}")
             
             # Фильтрация по полу
             if task_row['gender'] in ['M', 'F']:
@@ -225,20 +179,17 @@ async def schedule_tasks_from_rules(context):
                 print(f"  👤 После фильтрации по полу ({task_row['gender']}): {len(opv_df)} ОПВ")
 
             if opv_df.empty:
-                print(f"  ❌ Нет подходящих ОПВ для задания - пропускаем")
                 # Сохраняем в кэш, чтобы не проверять 5 минут
                 _no_opv_cache[cache_key] = now
                 continue
 
             # Берём task_count ОПВ (или меньше если их не хватает)
             selected_opv = opv_df.head(task_count)
-            print(f"  ✅ Выбрано {len(selected_opv)} ОПВ для назначения")
 
             # Назначаем задачу каждому ОПВ из списка
             for idx, opv in selected_opv.iterrows():
                 opv_name = opv.get('fio', 'Неизвестный')
                 opv_id = opv.get('employee_id', 'Неизвестный')
-                print(f"    👤 Назначаем ОПВ #{idx+1}: {opv_name} (ID: {opv_id})")
                 
                 # Получаем активные задания ОПВ перед заморозкой
                 
@@ -262,16 +213,8 @@ async def schedule_tasks_from_rules(context):
                         AND merchant_code = '{MERCHANT_ID}'
                     """)
                 
-                if len(active_tasks_df) > 0:
-                    print(f"      📊 Найдено {len(active_tasks_df)} активных заданий")
-                
-                # Показываем детали найденных заданий только если они есть
-                if not active_tasks_df.empty:
-                    print(f"      📋 Задание: {active_tasks_df.iloc[0]['task_name']} (ID: {active_tasks_df.iloc[0]['id']})")
-                
                 # Заморозка активных заданий ОПВ
                 if not active_tasks_df.empty:
-                    print(f"      🧊 Замораживаем {len(active_tasks_df)} активных заданий")
                     
                     SQL.sql_delete('wms', f"""
                         UPDATE wms_bot.shift_tasks
@@ -280,8 +223,6 @@ async def schedule_tasks_from_rules(context):
                         AND status IN ('Выполняется')
                         AND time_end IS NULL
                     """)
-                else:
-                    print(f"      ✅ Нет активных заданий для заморозки")
                 
                 # Сохраняем информацию о замороженных заданиях для восстановления
                 from ..config.settings import frozen_tasks_info
@@ -337,7 +278,6 @@ async def schedule_tasks_from_rules(context):
                 for _, task_row in active_tasks_df.iterrows():
                     task_id = int(task_row['id'])
                     task_name = task_row.get('task_name', 'Неизвестное задание')
-                    print(f"      🔔 Отправляем уведомление о заморозке задания")
                     
                     try:
                         # Проверяем существование таймера для задания
@@ -363,9 +303,8 @@ async def schedule_tasks_from_rules(context):
                             ),
                             parse_mode='Markdown'
                         )
-                        print(f"      ✅ Уведомление о заморозке отправлено")
                     except Exception:
-                        print(f"      ❌ Ошибка отправки уведомления о заморозке")
+                        pass
 
                 # Назначаем одну задачу из дубликатов с блокировкой строки (FOR UPDATE)
                 task_to_assign_df = SQL.sql_select('wms', f"""
@@ -389,7 +328,7 @@ async def schedule_tasks_from_rules(context):
 
                 # Обновляем задание
                 now_str = now.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"      📝 Назначаем задание ID {task_id} ОПВ {opv_name}")
+                print(f"  ✅ Назначено: {task_name} → {opv_name}")
                 
                 SQL.sql_delete('wms', f"""
                     UPDATE wms_bot.shift_tasks
@@ -438,8 +377,6 @@ async def schedule_tasks_from_rules(context):
                 # Импортируем клавиатуру
                 from ..keyboards.opv_keyboards import get_special_task_keyboard
                 
-                print(f"      📤 Отправляем уведомление ОПВ {opv_name}")
-                
                 try:
                     message_text = (
                         f"📌 *На Вас назначено спец-задание!*\n\n"
@@ -458,8 +395,6 @@ async def schedule_tasks_from_rules(context):
                         parse_mode='Markdown',
                         reply_markup=keyboard
                     )
-                    
-                    print(f"      ✅ Уведомление отправлено")
                 except Exception:
                     # Пробуем отправить без форматирования и клавиатуры
                     try:
@@ -468,9 +403,8 @@ async def schedule_tasks_from_rules(context):
                             chat_id=int(chat_id),
                             text=simple_text
                         )
-                        print(f"      ✅ Отправлено простое уведомление")
                     except Exception:
-                        print(f"      ❌ Ошибка отправки уведомления")
+                        pass
                 total_assigned += 1
                 
                 # ИСПРАВЛЕНИЕ: добавляем ОПВ в список назначенных
@@ -480,8 +414,8 @@ async def schedule_tasks_from_rules(context):
                 if cache_key in _no_opv_cache:
                     del _no_opv_cache[cache_key]
         
-        print(f"\n🎉 Итого назначено заданий: {total_assigned}")
-        print(f"⏰ Планировщик завершен в {datetime.now().strftime('%H:%M:%S')}")
+        if total_assigned > 0:
+            print(f"✅ Назначено заданий: {total_assigned}")
 
     except Exception as e:
         print(f"❌ Ошибка планировщика: {e}")
