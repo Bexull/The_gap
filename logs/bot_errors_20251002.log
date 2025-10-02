@@ -31,3 +31,15 @@ task: <Task cancelling name='Task-40' coro=<_time_tracker_loop() running at G:\F
 task: <Task pending name='Task-54' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:191> wait_for=<Future pending cb=[Task.task_wakeup()]>>
 2025-10-02 21:14:46 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task cancelling name='Task-53' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:269> wait_for=<Future cancelled>>
+2025-10-02 21:18:10 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-78' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:18:10 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-77' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:269> wait_for=<Future cancelled>>
+2025-10-02 21:22:31 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-118' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:22:31 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-117' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:269> wait_for=<Future cancelled>>
+2025-10-02 21:52:21 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-66' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:81> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:52:21 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-65' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:218> wait_for=<Future cancelled>>

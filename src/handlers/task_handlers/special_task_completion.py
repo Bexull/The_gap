@@ -7,6 +7,8 @@ from telegram.ext import CallbackContext
 from ...database.sql_client import SQL
 from ...config.settings import MERCHANT_ID
 from ...utils.task_utils import parse_task_duration
+from ...utils.time_utils import seconds_to_hms
+from ...utils.freeze_time_utils import read_freeze_time
 from ...keyboards.opv_keyboards import get_task_keyboard
 from .task_timer import update_timer
 from .task_restoration import restore_frozen_task_if_needed
@@ -100,25 +102,12 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                 # Получаем task_id
                 task_id = int(frozen_task['id'])
                 
-                # Если есть информация о замороженном задании в глобальном хранилище,
-                # используем ее для расчета оставшегося времени
-                total_seconds = 0
-                elapsed_seconds = 0
+                # 1. Читаем elapsed из БД
+                elapsed_seconds = read_freeze_time(task_id)
                 
-                if task_id in frozen_tasks_info:
-                    # Используем сохраненное оставшееся время
-                    total_seconds = frozen_tasks_info[task_id].get('remaining_seconds', 0)
-                    elapsed_seconds = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
-                    total_seconds = align_seconds(total_seconds, mode='ceil')
-                    elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
-
-                    print(
-                        f"🕒 [RESTORE] task_id={task_id} after special elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(total_seconds)}"
-                    )
-                else:
-                    # Если нет данных в хранилище, рассчитываем по старой схеме
-                    full_duration = parse_task_duration(frozen_task['task_duration'])
-                    total_seconds = full_duration
+                # 2. Вычисляем remaining
+                allocated_seconds = parse_task_duration(frozen_task['task_duration'])
+                remaining_seconds = max(0, allocated_seconds - elapsed_seconds)
                 
                 # Получаем chat_id пользователя
                 opv_userid_df = SQL.sql_select('wms', f"""
@@ -131,24 +120,19 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                     # Отправляем сообщение о восстановлении задания
                     reply_markup = get_task_keyboard()
                     
-                    # Форматируем оставшееся время
-                    remaining_time = str(timedelta(seconds=total_seconds)).split('.')[0]
-                    
-                    # Если прошедшее время больше 0, показываем его
-                    elapsed_info = ""
-                    if elapsed_seconds > 0:
-                        elapsed_time = str(timedelta(seconds=elapsed_seconds)).split('.')[0]
-                        elapsed_info = f"\n⏱ *Уже затрачено:* {elapsed_time}"
-                    
+                    # 3. Формируем сообщение с информацией о времени
                     message = (
                         f"📄 *Номер задания:* {frozen_task['id']}\n"
                         f"🔄 *Задание восстановлено*\n\n"
                         f"📝 *Наименование:* {frozen_task['task_name']}\n"
                         f"📦 *Группа товаров:* {frozen_task['product_group']}\n"
                         f"📍 *Слот:* {frozen_task['slot']}\n"
-                        f"⏱ *Выделенное время:* {frozen_task['task_duration']}{elapsed_info}\n"
-                        f"⏳ *Оставшееся время:* {remaining_time}"
+                        f"⏱ *Выделенное время:* {frozen_task['task_duration']}\n"
+                        f"⏳ *Оставшееся время:* {seconds_to_hms(remaining_seconds)}"
                     )
+                    
+                    if elapsed_seconds > 0:
+                        message += f"\n⏱ *Уже затрачено:* {seconds_to_hms(elapsed_seconds)}"
                     
                     if frozen_task['comment']:
                         message += f"\n💬 *Комментарий:* {frozen_task['comment']}"
@@ -160,22 +144,14 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
                         reply_markup=reply_markup
                     )
                     
-                    # Добавляем логи перед запуском таймера
-                    
                     # Проверяем, есть ли уже активный таймер для этого задания
                     from ...config.settings import active_timers
                     if task_id in active_timers:
                         print(f"⚠️ [WARNING] Таймер для задания {task_id} уже запущен, пропускаем повторный запуск")
                     else:
-                        # Запускаем таймер только если его еще нет
-                        # ИСПРАВЛЕНИЕ: используем total_seconds (remaining), а не allocated_seconds
-                        # total_seconds уже содержит remaining_seconds из frozen_tasks_info
-                        allocated_seconds = frozen_tasks_info.get(task_id, {}).get('allocated_seconds', total_seconds)
+                        # Запускаем таймер
                         asyncio.create_task(
-                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, total_seconds, reply_markup)
-                        )
-                        print(
-                            f"🕒 [RESTORE] timer restarted after special for task_id={task_id} remaining={seconds_to_hms(total_seconds)} allocated={seconds_to_hms(allocated_seconds)}"
+                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, allocated_seconds, reply_markup)
                         )
                     
             except Exception as e:

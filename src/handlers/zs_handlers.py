@@ -8,6 +8,7 @@ from ..database.sql_client import SQL
 from ..keyboards.zs_keyboards import get_zs_main_menu_keyboard, get_opv_list_keyboard, get_opv_names_keyboard
 from ..keyboards.opv_keyboards import get_next_task_keyboard, get_task_keyboard
 from ..config.settings import ZS_GROUP_CHAT_ID, MERCHANT_ID
+from ..utils.freeze_time_utils import read_freeze_time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 
 
@@ -408,25 +409,20 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         else:
             assigned_time = pd.to_datetime(row['time_begin'])
 
+        # 1. Читаем elapsed из БД
+        elapsed_seconds = read_freeze_time(task_id)
+        
+        # 2. Вычисляем allocated и remaining
         total_duration = (
             row['task_duration'].hour * 3600 + row['task_duration'].minute * 60 + row['task_duration'].second
             if isinstance(row['task_duration'], dt.time)
             else 900
         )
-        deadline = assigned_time + timedelta(seconds=total_duration)
-        now = datetime.now()
-        remaining_seconds = max(0, int((deadline - now).total_seconds()))
+        remaining_seconds = max(0, total_duration - elapsed_seconds)
 
-        from ..utils.time_utils import align_seconds, seconds_to_hms
-        remaining_seconds = align_seconds(remaining_seconds, mode='ceil')
-        total_duration = align_seconds(total_duration, mode='ceil')
+        from ..utils.time_utils import seconds_to_hms
 
-        elapsed_seconds = total_duration - remaining_seconds
-        print(
-            f"🕒 [RESTORE] task_id={task_id} return elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(remaining_seconds)}"
-        )
-
-        # Формируем сообщение для ОПВ
+        # 3. Формируем сообщение для ОПВ с информацией о времени
         message = (
             f"⚠️ Задание №{task_id} вернули на доработку.\n"
             f"📝 Причина: {reason}\n\n"
@@ -437,6 +433,9 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             f"⏱ *Выделенное время:* {seconds_to_hms(total_duration)}\n"
             f"⏳ *Оставшееся время:* {seconds_to_hms(remaining_seconds)}"
         )
+        
+        if elapsed_seconds > 0:
+            message += f"\n⏱ *Уже затрачено:* {seconds_to_hms(elapsed_seconds)}"
         
 
 
@@ -453,12 +452,10 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             from ..config.settings import active_timers, frozen_tasks_info
             from ..handlers.task_handlers import update_timer
 
+            # Minimal frozen info
             frozen_tasks_info[task_id] = {
                 'freeze_time': datetime.now(),
-                'elapsed_seconds': align_seconds(elapsed_seconds, mode='round'),
-                'remaining_seconds': remaining_seconds,
-                'original_start_time': assigned_time,
-                'allocated_seconds': total_duration
+                'original_start_time': assigned_time
             }
 
             if task_id in active_timers:
@@ -483,7 +480,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
                     get_task_keyboard()
                 )
             )
-            print(f"🕒 [RESTORE] timer restarted via return for task_id={task_id} remaining={seconds_to_hms(remaining_seconds)}")
         except Exception as e:
             print(f"❌ Ошибка при отправке сообщения о возврате ОПВ {opv_user_id}: {e}")
             # Отправляем уведомление в группу ЗС

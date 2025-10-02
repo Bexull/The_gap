@@ -134,7 +134,7 @@ zav_on_shift = []
 task_assignments = {}  # {task_num: кол-во уже выданных}
 assignments = []
 active_timers = {}  # {task_id: {'chat_id': int, 'message_id': int, 'task': dict, 'allocated_seconds': int, 'reply_markup': obj}}
-frozen_tasks_info = {}  # {task_id: {'freeze_time': datetime, 'elapsed_seconds': int, 'original_start_time': datetime, 'remaining_seconds': int, 'allocated_seconds': int}}
+frozen_tasks_info = {}  # {task_id: {'freeze_time': datetime, 'original_start_time': datetime}}
 task_time_tracker = {}  # {task_id: {'elapsed_seconds': float, 'allocated_seconds': int, 'last_tick': datetime, 'original_start_time': datetime, 'remaining_seconds': int}}
 
 # =============================================================================

@@ -7,6 +7,8 @@ from telegram.ext import CallbackContext
 from ...database.sql_client import SQL
 from ...config.settings import MERCHANT_ID
 from ...utils.task_utils import parse_task_duration
+from ...utils.time_utils import seconds_to_hms
+from ...utils.freeze_time_utils import read_freeze_time
 from ...keyboards.opv_keyboards import get_task_keyboard
 from .task_timer import update_timer
 
@@ -110,31 +112,17 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                     # Получаем task_id
                     task_id = int(frozen_task['id'])
                     
-                    # Используем общую функцию для получения оставшегося времени
-                    from ...utils.task_utils import get_task_remaining_time
+                    # 1. Читаем elapsed из БД
+                    elapsed_seconds = read_freeze_time(task_id)
                     
-                    # Упрощенный лог восстановления
-                    
-                    # Получаем allocated и прошедшее время
-                    allocated_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
-                    from ...utils.time_utils import align_seconds, seconds_to_hms
-                    allocated_seconds = align_seconds(allocated_seconds, mode='ceil')
-                    elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
-                    
-                    # ИСПРАВЛЕНИЕ: Вычисляем оставшееся время
+                    # 2. Вычисляем remaining
+                    allocated_seconds = parse_task_duration(frozen_task['task_duration'])
                     remaining_seconds = max(0, allocated_seconds - elapsed_seconds)
-
-                    print(
-                        f"🕒 [RESTORE] task_id={task_id} elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(remaining_seconds)}"
-                    )
                     
                     # Отправляем сообщение с деталями задания
                     reply_markup = get_task_keyboard()
                     
-                    # Используем общую функцию для форматирования информации о времени
-                    from ...utils.task_utils import format_task_time_info
-                    remaining_time, elapsed_info = format_task_time_info(remaining_seconds, elapsed_seconds)
-                    
+                    # 3. Формируем сообщение с информацией о времени
                     message = (
                         f"📋 *Текущее задание*\n\n"
                         f"🆔 ID: `{frozen_task['id']}`\n"
@@ -142,10 +130,14 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                         f"📦 Группа: {frozen_task['product_group']}\n"
                         f"📍 Слот: {frozen_task['slot']}\n"
                         f"⏰ Время начала: {now.strftime('%H:%M:%S')}\n"
-                        f"⏳ Плановая длительность: {frozen_task['task_duration']} мин{elapsed_info}\n"
-                        f"⌛ Оставшееся время: {remaining_time}\n"
-                        f"▶️ Статус: Выполняется"
+                        f"⏱ Плановая длительность: {frozen_task['task_duration']} мин\n"
+                        f"⏳ Оставшееся время: {seconds_to_hms(remaining_seconds)}"
                     )
+                    
+                    if elapsed_seconds > 0:
+                        message += f"\n⏱ Уже затрачено: {seconds_to_hms(elapsed_seconds)}"
+                    
+                    message += f"\n▶️ Статус: Выполняется"
                     
                     if frozen_task['comment']:
                         message += f"\n💬 Комментарий: {frozen_task['comment']}"
@@ -166,28 +158,14 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                         'duration': frozen_task['task_duration']
                     }
                     
-                    # Краткий лог запуска таймера
-                    
                     # Проверяем, есть ли уже активный таймер для этого задания
-                    from ...config.settings import active_timers, frozen_tasks_info
+                    from ...config.settings import active_timers
                     if task_id in active_timers:
                         print(f"⚠️ [WARNING] Таймер для задания {task_id} уже запущен, пропускаем повторный запуск")
                     else:
-                        # ОТЛАДКА: Логируем значения при восстановлении
-                        frozen_info = frozen_tasks_info.get(task_id, {})
-                        print(f"🔍 [RESTORE DEBUG] task_id={task_id}")
-                        print(f"   frozen_info: {frozen_info}")
-                        print(f"   allocated_seconds: {allocated_seconds}")
-                        
-                        # Запускаем таймер только если его еще нет
-                        final_allocated_seconds = frozen_tasks_info.get(task_id, {}).get('allocated_seconds', allocated_seconds)
-                        print(f"   final_allocated_seconds: {final_allocated_seconds}")
-                        
+                        # Запускаем таймер
                         asyncio.create_task(
-                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, final_allocated_seconds, reply_markup)
-                        )
-                        print(
-                            f"🕒 [RESTORE] timer restarted for task_id={task_id} allocated={seconds_to_hms(final_allocated_seconds)}"
+                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, allocated_seconds, reply_markup)
                         )
                     
             except Exception as e:

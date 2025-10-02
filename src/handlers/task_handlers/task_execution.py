@@ -123,12 +123,10 @@ async def complete_task_inline(update: Update, context: CallbackContext):
     
     if tracker_entry:
         elapsed_seconds = tracker_entry.get('elapsed_seconds', 0)
-    elif task_id in frozen_tasks_info:
-        freeze_meta = frozen_tasks_info[task_id]
-        elapsed_before_freeze = freeze_meta.get('elapsed_seconds', 0)
-        time_after_restore = (now - task['assigned_time']).total_seconds()
-        elapsed_seconds = max(0, elapsed_before_freeze + time_after_restore)
-        print(f"⏰ Задание {task_id}: elapsed_before_freeze={elapsed_before_freeze}s, after_restore={time_after_restore}s, total={elapsed_seconds}s")
+    elif task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
+        # Используем original_start_time если есть
+        original_start_time = frozen_tasks_info[task_id]['original_start_time']
+        elapsed_seconds = (now - original_start_time).total_seconds()
     else:
         elapsed_seconds = (now - task['assigned_time']).total_seconds()
     
@@ -377,25 +375,20 @@ async def complete_the_task(update: Update, context: CallbackContext):
     # Завершаем обычное задание
     now = datetime.now()
     
-    # Проверяем, было ли задание заморожено и восстановлено
+    # Вычисляем время выполнения
     from ...config.settings import frozen_tasks_info, task_time_tracker
     task_id = task['task_id']
     
-    # Если задание было заморожено, используем оригинальное время начала
-    if task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
+    # Если есть tracker, используем его (более точное время)
+    if task_id in task_time_tracker:
+        elapsed_seconds = task_time_tracker[task_id].get('elapsed_seconds', 0)
+        time_spent = timedelta(seconds=elapsed_seconds)
+    elif task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
+        # Используем original_start_time если есть
         original_start_time = frozen_tasks_info[task_id]['original_start_time']
-        elapsed_before_freeze = frozen_tasks_info[task_id].get('elapsed_seconds', 0)
-        
-        # Вычисляем время выполнения после восстановления
-        time_after_restore = (now - task['assigned_time']).total_seconds()
-        
-        # Общее время выполнения = время до заморозки + время после восстановления
-        total_time_seconds = elapsed_before_freeze + time_after_restore
-        time_spent = timedelta(seconds=total_time_seconds)
-        
-        print(f"⏰ Задание {task_id}: время до заморозки {elapsed_before_freeze}с + время после восстановления {time_after_restore}с = {total_time_seconds}с")
+        time_spent = now - original_start_time
     else:
-        # Если задание не было заморожено, используем стандартное вычисление времени
+        # Иначе стандартное время
         time_spent = now - task['assigned_time']
 
     try:

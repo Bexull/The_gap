@@ -193,10 +193,8 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         if task['task_id'] in active_timers:
             print(f"⚠️ [WARNING] Таймер для задания {task['task_id']} уже существует в task_assignment, не создаем новый")
         else:
-            allocated_seconds = frozen_tasks_info.get(task['task_id'], {}).get('allocated_seconds', total_seconds)
-
             asyncio.create_task(
-                update_timer(context, sent_msg.chat_id, sent_msg.message_id, task, allocated_seconds, reply_markup)
+                update_timer(context, sent_msg.chat_id, sent_msg.message_id, task, total_seconds, reply_markup)
             )
 
     except Exception as e:

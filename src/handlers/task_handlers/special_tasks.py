@@ -7,6 +7,8 @@ from telegram.ext import CallbackContext, ContextTypes
 from ...database.sql_client import SQL
 from ...config.settings import MERCHANT_ID
 from ...utils.task_utils import parse_task_duration
+from ...utils.time_utils import seconds_to_hms
+from ...utils.freeze_time_utils import read_freeze_time
 from ...keyboards.opv_keyboards import get_special_task_keyboard, get_task_keyboard
 from .task_timer import update_timer
 
@@ -103,11 +105,11 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
             # Получаем task_id
             task_id = frozen_task['id']
             
-            # Используем общую функцию для получения оставшегося времени
-            from ...utils.task_utils import get_task_remaining_time
-            allocated_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
+            # 1. Читаем elapsed из БД
+            elapsed_seconds = read_freeze_time(task_id)
             
-            # ИСПРАВЛЕНИЕ: Вычисляем оставшееся время
+            # 2. Вычисляем remaining
+            allocated_seconds = parse_task_duration(frozen_task['task_duration'])
             remaining_seconds = max(0, allocated_seconds - elapsed_seconds)
             
             # Получаем chat_id пользователя
@@ -121,23 +123,19 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 # Отправляем сообщение о восстановлении задания
                 reply_markup = get_task_keyboard()
                 
-                # Используем общую функцию для форматирования информации о времени
-                from ...utils.task_utils import format_task_time_info
-                remaining_time, elapsed_info = format_task_time_info(remaining_seconds, elapsed_seconds)
-                
-                # Добавляем форматирование для Markdown
-                if elapsed_info:
-                    elapsed_info = elapsed_info.replace("Уже затрачено:", "*Уже затрачено:*")
-                
+                # 3. Формируем сообщение с информацией о времени
                 message = (
                     f"📄 *Номер задания:* {frozen_task['id']}\n"
                     f"🔄 *Задание восстановлено*\n\n"
                     f"📝 *Наименование:* {frozen_task['task_name']}\n"
                     f"📦 *Группа товаров:* {frozen_task['product_group']}\n"
                     f"📍 *Слот:* {frozen_task['slot']}\n"
-                    f"⏱ *Выделенное время:* {frozen_task['task_duration']}{elapsed_info}\n"
-                    f"⏳ *Оставшееся время:* {remaining_time}"
+                    f"⏱ *Выделенное время:* {frozen_task['task_duration']}\n"
+                    f"⏳ *Оставшееся время:* {seconds_to_hms(remaining_seconds)}"
                 )
+                
+                if elapsed_seconds > 0:
+                    message += f"\n⏱ *Уже затрачено:* {seconds_to_hms(elapsed_seconds)}"
                 
                 if frozen_task['comment']:
                     message += f"\n💬 *Комментарий:* {frozen_task['comment']}"
