@@ -105,7 +105,10 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
             
             # Используем общую функцию для получения оставшегося времени
             from ...utils.task_utils import get_task_remaining_time
-            total_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
+            allocated_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
+            
+            # ИСПРАВЛЕНИЕ: Вычисляем оставшееся время
+            remaining_seconds = max(0, allocated_seconds - elapsed_seconds)
             
             # Получаем chat_id пользователя
             opv_userid_df = SQL.sql_select('wms', f"""
@@ -120,7 +123,7 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 
                 # Используем общую функцию для форматирования информации о времени
                 from ...utils.task_utils import format_task_time_info
-                remaining_time, elapsed_info = format_task_time_info(total_seconds, elapsed_seconds)
+                remaining_time, elapsed_info = format_task_time_info(remaining_seconds, elapsed_seconds)
                 
                 # Добавляем форматирование для Markdown
                 if elapsed_info:
@@ -153,9 +156,9 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 if task_id in active_timers:
                     print(f"⚠️ [WARNING] Таймер для задания {task_id} уже существует в special_tasks, не создаем новый")
                 else:
-                    # Запускаем новый таймер
+                    # Запускаем новый таймер с allocated_seconds (полное выделенное время)
                     asyncio.create_task(
-                        update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, total_seconds, reply_markup)
+                        update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, allocated_seconds, reply_markup)
                     )
                 
         except Exception as e:
@@ -171,10 +174,6 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
     else:
         # Просто показываем сообщение об успешном завершении
         await query.edit_message_text(success_message)
-    
-    # Дополнительно проверяем и восстанавливаем замороженные задания с отправкой сообщения
-    from .task_restoration import restore_frozen_task_if_needed
-    await restore_frozen_task_if_needed(staff_id, context, send_message=True)
 
 
 async def complete_the_extra_task(update: Update, context: CallbackContext):

@@ -1,0 +1,33 @@
+2025-10-02 14:39:09 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-98' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> exception=AttributeError("'AttributeError' object has no attribute 'empty'")>
+Traceback (most recent call last):
+  File "G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py", line 136, in _render_timer_loop
+    if task_status_df.empty:
+       ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AttributeError' object has no attribute 'empty'
+2025-10-02 20:55:55 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-130' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 20:55:55 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-129' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:240> wait_for=<Future cancelled>>
+2025-10-02 20:59:06 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-28' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 20:59:06 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-39' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 20:59:06 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-38' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:240> wait_for=<Future cancelled>>
+2025-10-02 21:05:50 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-41' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:191> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:05:50 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-30' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:156> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:05:50 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-40' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:240> wait_for=<Future cancelled>>
+2025-10-02 21:07:17 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-30' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:07:17 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-41' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:07:17 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-40' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:269> wait_for=<Future cancelled>>
+2025-10-02 21:14:46 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-54' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:191> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-02 21:14:46 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task cancelling name='Task-53' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_Gap_2\src\handlers\task_handlers\task_timer.py:269> wait_for=<Future cancelled>>

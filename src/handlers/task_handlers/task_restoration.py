@@ -115,14 +115,17 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                     
                     # Упрощенный лог восстановления
                     
-                    # Получаем оставшееся и прошедшее время
-                    total_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
+                    # Получаем allocated и прошедшее время
+                    allocated_seconds, elapsed_seconds = get_task_remaining_time(task_id, frozen_task['task_duration'])
                     from ...utils.time_utils import align_seconds, seconds_to_hms
-                    total_seconds = align_seconds(total_seconds, mode='ceil')
+                    allocated_seconds = align_seconds(allocated_seconds, mode='ceil')
                     elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
+                    
+                    # ИСПРАВЛЕНИЕ: Вычисляем оставшееся время
+                    remaining_seconds = max(0, allocated_seconds - elapsed_seconds)
 
                     print(
-                        f"🕒 [RESTORE] task_id={task_id} elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(total_seconds)}"
+                        f"🕒 [RESTORE] task_id={task_id} elapsed={seconds_to_hms(elapsed_seconds)} remaining={seconds_to_hms(remaining_seconds)}"
                     )
                     
                     # Отправляем сообщение с деталями задания
@@ -130,7 +133,7 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                     
                     # Используем общую функцию для форматирования информации о времени
                     from ...utils.task_utils import format_task_time_info
-                    remaining_time, elapsed_info = format_task_time_info(total_seconds, elapsed_seconds)
+                    remaining_time, elapsed_info = format_task_time_info(remaining_seconds, elapsed_seconds)
                     
                     message = (
                         f"📋 *Текущее задание*\n\n"
@@ -174,17 +177,17 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                         frozen_info = frozen_tasks_info.get(task_id, {})
                         print(f"🔍 [RESTORE DEBUG] task_id={task_id}")
                         print(f"   frozen_info: {frozen_info}")
-                        print(f"   total_seconds: {total_seconds}")
-                        
-                        # Запускаем таймер только если его еще нет
-                        allocated_seconds = frozen_tasks_info.get(task_id, {}).get('allocated_seconds', total_seconds)
                         print(f"   allocated_seconds: {allocated_seconds}")
                         
+                        # Запускаем таймер только если его еще нет
+                        final_allocated_seconds = frozen_tasks_info.get(task_id, {}).get('allocated_seconds', allocated_seconds)
+                        print(f"   final_allocated_seconds: {final_allocated_seconds}")
+                        
                         asyncio.create_task(
-                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, allocated_seconds, reply_markup)
+                            update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_data, final_allocated_seconds, reply_markup)
                         )
                         print(
-                            f"🕒 [RESTORE] timer restarted for task_id={task_id} allocated={seconds_to_hms(allocated_seconds)}"
+                            f"🕒 [RESTORE] timer restarted for task_id={task_id} allocated={seconds_to_hms(final_allocated_seconds)}"
                         )
                     
             except Exception as e:

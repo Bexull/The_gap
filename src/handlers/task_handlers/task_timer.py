@@ -195,15 +195,44 @@ async def _render_timer_loop(context, task_id):
         tracker_entry = _cleanup_task_tracking(task_id, keep_frozen=keep_frozen)
 
         if tracker_entry:
-            total_elapsed = tracker_entry.get('elapsed_seconds', 0)
-            formatted = seconds_to_hms(int(max(0, total_elapsed)))
+            current_elapsed = int(max(0, tracker_entry.get('elapsed_seconds', 0)))
+            
+            # ИСПРАВЛЕНИЕ: При заморозке НАКАПЛИВАЕМ время
+            if keep_frozen:
+                # Читаем старое freeze_time из БД и прибавляем к нему
+                freeze_df = SQL.sql_select('wms', f"""
+                    SELECT freeze_time FROM wms_bot.shift_tasks
+                    WHERE id = {task_id} AND merchant_code = '{MERCHANT_ID}'
+                """)
+                
+                previous_elapsed = 0
+                if not freeze_df.empty and freeze_df.iloc[0]['freeze_time']:
+                    freeze_time_raw = freeze_df.iloc[0]['freeze_time']
+                    # Парсим предыдущее freeze_time
+                    if isinstance(freeze_time_raw, str):
+                        time_parts = freeze_time_raw.split(':')
+                        if len(time_parts) >= 2:
+                            hours = int(time_parts[0])
+                            minutes = int(time_parts[1])
+                            seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                            previous_elapsed = hours * 3600 + minutes * 60 + seconds
+                    elif hasattr(freeze_time_raw, 'total_seconds'):
+                        previous_elapsed = int(freeze_time_raw.total_seconds())
+                    elif hasattr(freeze_time_raw, 'hour'):
+                        previous_elapsed = freeze_time_raw.hour * 3600 + freeze_time_raw.minute * 60 + freeze_time_raw.second
+                
+                total_elapsed = previous_elapsed + current_elapsed
+                formatted = seconds_to_hms(total_elapsed)
+                print(f"💾 freeze_time НАКОПЛЕН для задачи {task_id}: {seconds_to_hms(previous_elapsed)} + {seconds_to_hms(current_elapsed)} = {formatted}")
+            else:
+                formatted = seconds_to_hms(current_elapsed)
+                print(f"💾 freeze_time обновлён для задачи {task_id}: {formatted}")
 
             SQL.sql_delete('wms', f"""
                 UPDATE wms_bot.shift_tasks
                 SET freeze_time = '{formatted}'
                 WHERE id = {task_id}
             """)
-            print(f"💾 freeze_time обновлён для задачи {task_id}: {formatted}")
 
 
 async def _time_tracker_loop():
@@ -252,13 +281,42 @@ async def _handle_freeze_state(context, task_id, tracker_entry, timer_info):
     remaining_time_str = str(timedelta(seconds=remaining_seconds)).split('.')[0]
 
     from ...config.settings import frozen_tasks_info
+    
+    # ИСПРАВЛЕНИЕ: Читаем актуальное freeze_time из БД и накапливаем
+    freeze_df = SQL.sql_select('wms', f"""
+        SELECT freeze_time FROM wms_bot.shift_tasks
+        WHERE id = {task_id} AND merchant_code = '{MERCHANT_ID}'
+    """)
+    
+    previous_elapsed = 0
+    if not freeze_df.empty and freeze_df.iloc[0]['freeze_time']:
+        freeze_time_raw = freeze_df.iloc[0]['freeze_time']
+        # Парсим предыдущее freeze_time
+        if isinstance(freeze_time_raw, str):
+            time_parts = freeze_time_raw.split(':')
+            if len(time_parts) >= 2:
+                hours = int(time_parts[0])
+                minutes = int(time_parts[1])
+                seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                previous_elapsed = hours * 3600 + minutes * 60 + seconds
+        elif hasattr(freeze_time_raw, 'total_seconds'):
+            previous_elapsed = int(freeze_time_raw.total_seconds())
+        elif hasattr(freeze_time_raw, 'hour'):
+            previous_elapsed = freeze_time_raw.hour * 3600 + freeze_time_raw.minute * 60 + freeze_time_raw.second
+    
+    # Накапливаем elapsed
+    current_elapsed = int(tracker_entry.get('elapsed_seconds', 0))
+    total_accumulated_elapsed = previous_elapsed + current_elapsed
+    
     frozen_tasks_info[task_id] = {
         'freeze_time': datetime.now(),
-        'elapsed_seconds': int(tracker_entry.get('elapsed_seconds', 0)),
+        'elapsed_seconds': total_accumulated_elapsed,  # Накопленное!
         'remaining_seconds': remaining_seconds,
         'original_start_time': tracker_entry.get('original_start_time'),
         'allocated_seconds': tracker_entry.get('allocated_seconds')
     }
+    
+    print(f"🔄 [FREEZE_STATE] Обновлен frozen_tasks_info для задания {task_id}: previous={previous_elapsed}s + current={current_elapsed}s = total_elapsed={total_accumulated_elapsed}s")
 
     task = timer_info['task']
     message = (
@@ -305,15 +363,42 @@ async def stop_timer_for_task(task_id: int, context, reason: str = "задани
             remaining_seconds = max(0, int(allocated - elapsed_seconds))
 
         if "заморозка" in reason.lower() or "заморожено" in reason.lower():
-            # Проверяем, не сохранены ли уже данные в frozen_tasks_info (например, из _handle_freeze_state)
-            if task_id not in frozen_tasks_info:
-                frozen_tasks_info[task_id] = {
-                    'freeze_time': datetime.now(),
-                    'elapsed_seconds': int(elapsed_seconds),
-                    'remaining_seconds': int(remaining_seconds),
-                    'original_start_time': tracker_entry.get('original_start_time') if tracker_entry else None,
-                    'allocated_seconds': tracker_entry.get('allocated_seconds') if tracker_entry else int(elapsed_seconds + remaining_seconds)
-                }
+            # ИСПРАВЛЕНИЕ: Читаем актуальное freeze_time из БД перед обновлением frozen_tasks_info
+            freeze_df = SQL.sql_select('wms', f"""
+                SELECT freeze_time FROM wms_bot.shift_tasks
+                WHERE id = {task_id} AND merchant_code = '{MERCHANT_ID}'
+            """)
+            
+            previous_elapsed = 0
+            if not freeze_df.empty and freeze_df.iloc[0]['freeze_time']:
+                freeze_time_raw = freeze_df.iloc[0]['freeze_time']
+                # Парсим предыдущее freeze_time
+                if isinstance(freeze_time_raw, str):
+                    time_parts = freeze_time_raw.split(':')
+                    if len(time_parts) >= 2:
+                        hours = int(time_parts[0])
+                        minutes = int(time_parts[1])
+                        seconds = int(time_parts[2]) if len(time_parts) > 2 else 0
+                        previous_elapsed = hours * 3600 + minutes * 60 + seconds
+                elif hasattr(freeze_time_raw, 'total_seconds'):
+                    previous_elapsed = int(freeze_time_raw.total_seconds())
+                elif hasattr(freeze_time_raw, 'hour'):
+                    previous_elapsed = freeze_time_raw.hour * 3600 + freeze_time_raw.minute * 60 + freeze_time_raw.second
+            
+            # Накапливаем актуальное elapsed
+            total_accumulated_elapsed = previous_elapsed + int(elapsed_seconds)
+            
+            # ВСЕГДА обновляем frozen_tasks_info актуальным накопленным значением
+            frozen_tasks_info[task_id] = {
+                'freeze_time': datetime.now(),
+                'elapsed_seconds': total_accumulated_elapsed,  # Актуальное накопленное!
+                'remaining_seconds': int(remaining_seconds),
+                'original_start_time': tracker_entry.get('original_start_time') if tracker_entry else None,
+                'allocated_seconds': tracker_entry.get('allocated_seconds') if tracker_entry else int(total_accumulated_elapsed + remaining_seconds)
+            }
+            
+            print(f"🔄 [FREEZE] Обновлен frozen_tasks_info для задания {task_id}: previous={previous_elapsed}s + current={int(elapsed_seconds)}s = total_elapsed={total_accumulated_elapsed}s")
+            
             keep_frozen = True
 
         remaining_time_str = str(timedelta(seconds=int(remaining_seconds))).split('.')[0]
@@ -341,13 +426,22 @@ async def stop_timer_for_task(task_id: int, context, reason: str = "задани
         except Exception as render_error:
             print(f"❌ [ERROR] Ошибка при остановке таймера для задания {task_id}: {render_error}")
 
-        formatted_total = seconds_to_hms(int(max(0, tracker_entry.get('elapsed_seconds', 0)) if tracker_entry else 0))
+        # ИСПРАВЛЕНИЕ: Используем уже вычисленное накопленное значение из frozen_tasks_info
+        if "заморозка" in reason.lower() or "заморожено" in reason.lower():
+            # Берем накопленное значение из frozen_tasks_info (уже вычислено выше)
+            total_elapsed = frozen_tasks_info[task_id]['elapsed_seconds']
+            formatted_total = seconds_to_hms(total_elapsed)
+            print(f"💾 freeze_time НАКОПЛЕН при stop_timer для задачи {task_id}: {formatted_total}")
+        else:
+            current_elapsed = int(max(0, tracker_entry.get('elapsed_seconds', 0)) if tracker_entry else 0)
+            formatted_total = seconds_to_hms(current_elapsed)
+            print(f"💾 freeze_time обновлён при stop_timer для задачи {task_id}: {formatted_total}")
+        
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
             SET freeze_time = '{formatted_total}'
             WHERE id = {task_id}
         """)
-        print(f"💾 freeze_time обновлён при stop_timer для задачи {task_id}: {formatted_total}")
 
         active_timers.pop(task_id, None)
         _cleanup_task_tracking(task_id, keep_frozen=keep_frozen)
