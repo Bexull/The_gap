@@ -4,7 +4,7 @@ import datetime as dt
 from telegram import Update
 from telegram.ext import CallbackContext
 from ...database.sql_client import SQL
-from ...utils.time_utils import get_task_date
+from ...utils.time_utils import get_task_date, get_current_slot
 from ...config.settings import MERCHANT_ID
 from ...utils.task_utils import check_user_task_status
 from ...keyboards.opv_keyboards import get_sector_keyboard, get_task_in_progress_keyboard
@@ -78,16 +78,27 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         shift_ru = 'День' if shift == 'day' else 'Ночь'
 
         task_date = get_task_date(shift)
+        
+        # Получаем текущий слот
+        current_slot = get_current_slot(shift)
+        
+        # Если слот не определен (вне рабочего времени), не выдаем задания
+        if current_slot is None:
+            await query.edit_message_text("❌ Получение заданий доступно только в рабочее время.")
+            return
 
-        # Выбираем задание из shift_tasks (независимо от слота)
+        # Выбираем задание из shift_tasks с учетом слота
+        # Задания предыдущих слотов "перетекают" на текущий слот
         sql_query = f"""
             SELECT * FROM wms_bot.shift_tasks
             WHERE task_date = '{task_date}'
               AND shift = '{shift_ru}'
               AND sector = '{sector}'
+              AND slot <= {current_slot}
               AND is_constant_task = true
               AND merchant_code ='{MERCHANT_ID}'
               AND (status IS NULL OR status = 'В ожидании')
+            ORDER BY slot ASC, priority ASC
         """
         task_df = SQL.sql_select('wms', sql_query)
 
@@ -106,8 +117,8 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
             await query.edit_message_text("❌ Нет подходящих по полу заданий.")
             return
 
-        # Берём задание с наивысшим приоритетом
-        task_row = task_df.sort_values('priority').iloc[0]
+        # Берём первое задание (уже отсортировано по slot ASC, priority ASC)
+        task_row = task_df.iloc[0]
         now = datetime.now()
 
         # Обновляем статус задания + записываем ФИО оператора
