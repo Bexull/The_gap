@@ -85,33 +85,24 @@ async def send_task_to_zs(context, task: dict, photos: list):
         sector = context.user_data.get('sector', '').strip().capitalize()
         thread_id = get_topic_id(sector)
 
-        # Получаем правильное время начала для вычисления времени выполнения
+        # Получаем время выполнения из БД (единый источник правды!)
         task_id = task.get('task_id')
-        start_time_for_calculation = task['assigned_time']
+        from .freeze_time_utils import read_freeze_time
         
-        # Проверяем, есть ли информация о замороженном задании
-        from ..config.settings import frozen_tasks_info
-        if task_id and task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
-            original_start_time = frozen_tasks_info[task_id]['original_start_time']
-            if isinstance(original_start_time, datetime):
-                start_time_for_calculation = original_start_time
-                print(f"🔧 [FIX] Используем original_start_time для вычисления времени выполнения задания {task_id}: {start_time_for_calculation}")
-            else:
-                print(f"⚠️ [WARNING] original_start_time для задания {task_id} не является datetime объектом: {type(original_start_time)}")
-        else:
-            print(f"ℹ️ [INFO] Используем assigned_time для вычисления времени выполнения задания {task_id}: {start_time_for_calculation}")
+        # Читаем накопленное время из БД
+        elapsed_seconds = read_freeze_time(task_id)
         
+        # Добавляем время текущей сессии, если таймер еще активен
         tracker_entry = task_time_tracker.get(task_id)
         if tracker_entry:
-            elapsed_seconds = tracker_entry.get('elapsed_seconds', 0)
-        else:
-            elapsed_seconds = (datetime.now() - start_time_for_calculation).total_seconds()
-
+            current_session = tracker_entry.get('elapsed_seconds', 0)
+            elapsed_seconds += current_session
+            print(f"⏱️ [TIMER] task={task_id} db={elapsed_seconds - current_session}s + session={current_session}s = total={elapsed_seconds}s")
+        
         elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
         time_spent = timedelta(seconds=elapsed_seconds)
         
-        # Добавляем логирование для отладки
-        print(f"⏰ [DEBUG] Время выполнения для задания {task_id}: {time_spent} (начало: {start_time_for_calculation}, текущее: {datetime.now()})")
+        print(f"⏰ [COMPLETE] Задание {task_id} завершено, время выполнения: {time_spent}")
 
         message = (
             f"📬 Задание от *{context.user_data.get('staff_name', 'ОПВ')}* завершено\n"

@@ -68,12 +68,12 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
     """)
 
     # Проверяем замороженные задания и восстанавливаем их
+    # Не проверяем time_end, так как задания на доработке могут иметь time_end
     frozen_task_df = SQL.sql_select('wms', f"""
         SELECT id, task_name, product_group, slot, task_duration, comment
         FROM wms_bot.shift_tasks
         WHERE user_id = '{staff_id}'
-          AND status = 'Заморожено'
-          AND time_end IS NULL
+          AND status IN ('Заморожено', 'На доработке')
           AND merchant_code = '{MERCHANT_ID}'
         ORDER BY time_begin DESC LIMIT 1
     """)

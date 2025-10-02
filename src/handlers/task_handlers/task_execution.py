@@ -218,7 +218,7 @@ async def show_task(update: Update, context: CallbackContext):
         task_df = SQL.sql_select('wms', f"""
             SELECT id, task_name, product_group, slot, time_begin, task_duration, comment, status, provider, priority
             FROM wms_bot.shift_tasks
-            WHERE user_id = '{staff_id}' AND status = 'Заморожено'
+            WHERE user_id = '{staff_id}' AND status IN ('Заморожено', 'На доработке')
             AND merchant_code = '{MERCHANT_ID}'
             ORDER BY time_begin DESC LIMIT 1
         """)

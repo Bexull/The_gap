@@ -44,7 +44,7 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
             SELECT id, task_name, product_group, slot, task_duration, comment, user_id
             FROM wms_bot.shift_tasks
             WHERE user_id = '{staff_id}'
-              AND status = 'Заморожено'
+              AND status IN ('Заморожено', 'На доработке')
               AND merchant_code = '{MERCHANT_ID}'
             ORDER BY time_begin DESC LIMIT 1
         """)
@@ -57,7 +57,7 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                     SELECT id, task_name, product_group, slot, task_duration, comment, user_id
                     FROM wms_bot.shift_tasks
                     WHERE user_id = {staff_id_int}
-                      AND status = 'Заморожено'
+                      AND status IN ('Заморожено', 'На доработке')
                       AND merchant_code = '{MERCHANT_ID}'
                     ORDER BY time_begin DESC LIMIT 1
                 """)
