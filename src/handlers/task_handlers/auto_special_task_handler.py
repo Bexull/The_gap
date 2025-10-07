@@ -259,11 +259,38 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
         now = datetime.now()
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
         
+        # Получаем ФИО оператора из БД
+        operator_name_df = SQL.sql_select('wms', f"SELECT concat(name, ' ', surname) AS fio FROM wms_bot.t_staff WHERE id = '{staff_id}'")
+        operator_full_name = operator_name_df.iloc[0]['fio'] if not operator_name_df.empty else 'ОПВ'
+        
+        # Получаем тип занятости от замороженного задания (наследуем)
+        employment_type = 'main'  # По умолчанию основная смена
+        try:
+            # Ищем замороженное задание этого пользователя и берем его part_time
+            frozen_task_df = SQL.sql_select('wms', f"""
+                SELECT part_time 
+                FROM wms_bot.shift_tasks 
+                WHERE user_id = '{staff_id}' 
+                  AND status IN ('Заморожено', 'На доработке')
+                  AND merchant_code = '{MERCHANT_ID}'
+                  AND part_time IS NOT NULL
+                ORDER BY time_begin DESC LIMIT 1
+            """)
+            if hasattr(frozen_task_df, 'empty') and not frozen_task_df.empty and len(frozen_task_df) > 0:
+                employment_type = frozen_task_df.iloc[0]['part_time'] or 'main'
+                print(f"📋 Замороженное задание имело смену: {employment_type}, берем эту смену")
+            else:
+                print(f"⚠️ Замороженных заданий не найдено, используем значение по умолчанию: {employment_type}")
+        except Exception as e:
+            print(f"⚠️ Ошибка получения типа занятости от замороженного задания: {e}")
+        
         assign_query = f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Выполняется',
                 user_id = '{staff_id}',
-                time_begin = '{now_str}'
+                time_begin = '{now_str}',
+                part_time = '{employment_type}',
+                operator_name = '{operator_full_name}'
             WHERE id = {special_task_id}
         """
         

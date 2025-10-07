@@ -189,7 +189,8 @@ async def force_assign_tasks_by_time(context, start_time_str):
                     UPDATE wms_bot.shift_tasks
                     SET status = 'Выполняется',
                         user_id = '{opv['employee_id']}',
-                        time_begin = '{now_str}'
+                        time_begin = '{now_str}',
+                        operator_name = '{opv['fio']}'
                     WHERE id = {task_id}
                 """)
                 

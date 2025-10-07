@@ -51,6 +51,7 @@ async def role_choice(update: Update, context: CallbackContext):
             'employee_id': context.user_data['staff_id'],
             'role': role,
             'shift_type': shift,
+            'employment_type': context.user_data.get('employment_type', 'main'),
             'start_time': datetime.now(),
             'end_time': None,
             'load_date': pd.to_datetime('today').date(),

@@ -10,7 +10,7 @@ MODE = 'test'  # Измените на нужный режим
 
 CONFIGS = {
     'test': {
-        'TOKEN': '8390538420:AAEK5WxNfdX8jIXJlvvNpy5B1t65a6DYn_Y',
+        'TOKEN': '8390538420:AAGtXHSvHpvGOSeaJ86jOnh7m-ec1uz1j0I',
         'ADMIN_ID': 1015079692,
         'ZS_GROUP_CHAT_ID': -1003089690648,
         'MERCHANT_ID': 6011,
