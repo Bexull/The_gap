@@ -368,3 +368,35 @@ task: <Task pending name='Task-87' coro=<_render_timer_loop() done, defined at G
 task: <Task cancelling name='Task-86' coro=<_time_tracker_loop() running at G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:218> wait_for=<Future cancelled>>
 2025-10-09 18:32:14 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task pending name='Task-17' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:38> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-09 20:25:41 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-1327' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:140> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-09 20:25:41 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-1273' coro=<_render_timer_loop() running at G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:140> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-09 20:32:04 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_application.py", line 1315, in process_update
+    await coroutine
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_handlers\basehandler.py", line 159, in handle_update
+    return await self.callback(update, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_execution.py", line 218, in show_task
+    from ...utils.message_formatter import format_task_message
+  File "G:\FOR ALL BOTS\The_gap_2\src\utils\message_formatter.py", line 4, in <module>
+    from .time_utils import seconds_to_hms, hms_to_seconds, calculate_remaining_time
+ImportError: cannot import name 'hms_to_seconds' from 'src.utils.time_utils' (G:\FOR ALL BOTS\The_gap_2\src\utils\time_utils.py)
+2025-10-09 20:34:19 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Task-23' coro=<_render_timer_loop() done, defined at G:\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:38> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-10-09 21:09:41 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "G:\FOR ALL BOTS\The_gap_2\src\scheduler\task_scheduler.py", line 46, in schedule_tasks_from_rules
+    print(f"🔍 Найдено заданий: {len(schedule_df)}")
+                                 ~~~^^^^^^^^^^^^^
+TypeError: object of type 'AttributeError' has no len()
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Alpha\AppData\Local\Programs\Python\Python313\Lib\site-packages\telegram\ext\_jobqueue.py", line 998, in _run
+    await self.callback(context)
+  File "G:\FOR ALL BOTS\The_gap_2\src\scheduler\task_scheduler.py", line 445, in schedule_tasks_from_rules
+OSError: [Errno 22] Invalid argument

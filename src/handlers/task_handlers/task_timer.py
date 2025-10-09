@@ -101,23 +101,16 @@ async def _render_timer_loop(context, task_id):
                 # Обновляем last_rendered
                 active_timers[task_id]['last_rendered_remaining'] = remaining_seconds
 
-                # Формируем строку с оставшимся временем
-                remaining_str = seconds_to_hms(remaining_seconds)
-                allocated_str = seconds_to_hms(timer_info['allocated_seconds'])
-
-                # Формируем текст сообщения
-                text = f"📄 Номер задания: {task_id}\n"
-                text += f"✅ Задание выполняется\n\n"
+                # Формируем текст сообщения используя централизованную функцию
+                from ...utils.message_formatter import format_task_message
                 
+                # Добавляем task_duration для вычисления времени
+                task['task_duration'] = seconds_to_hms(timer_info['allocated_seconds'])
+                task['id'] = task_id
                 if comment:
-                    text += f"📝 Комментарий: {comment}\n\n"
-
-                text += f"📝 Наименование: {task.get('task_name', 'Не указано')}\n"
-                text += f"📦 Группа товаров: {task.get('product_group', 'Не указана')}\n"
-                text += f"📍 Слот: {task.get('slot', 'Не указан')}\n"
-                text += f"🏢 Поставщик: {task.get('provider', 'Не указан')}\n"
-                text += f"⏱️ Выделенное время: {allocated_str}\n"
-                text += f"⏳ Оставшееся время: {remaining_str}"
+                    task['comment'] = comment
+                
+                text = format_task_message(task, status="Выполняется")
 
                 # Обновляем сообщение
                 try:

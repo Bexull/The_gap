@@ -12,6 +12,35 @@ def seconds_to_hms(total_seconds: int) -> str:
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
+def hms_to_seconds(hms_str: str) -> int:
+    """
+    Конвертирует строку формата 'HH:MM:SS' в секунды
+    
+    Args:
+        hms_str: Строка в формате "HH:MM:SS" или timedelta
+    
+    Returns:
+        int: Количество секунд
+    """
+    if isinstance(hms_str, timedelta):
+        return int(hms_str.total_seconds())
+    
+    if not hms_str or not isinstance(hms_str, str):
+        return 0
+    
+    parts = str(hms_str).split(':')
+    if len(parts) != 3:
+        return 0
+    
+    try:
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        seconds = int(parts[2])
+        return hours * 3600 + minutes * 60 + seconds
+    except (ValueError, IndexError):
+        return 0
+
+
 def align_seconds(seconds: float, step: int = TIMER_TICK_SECONDS, mode: str = 'floor') -> int:
     """Выравнивает секунды к заданному шагу (floor/ceil/round)."""
 

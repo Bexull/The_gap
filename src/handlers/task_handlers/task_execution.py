@@ -9,6 +9,7 @@ from ...utils.task_utils import send_task_to_zs
 from ...keyboards.opv_keyboards import get_photo_upload_keyboard, get_task_keyboard
 from .special_task_completion import complete_special_task_directly
 from .task_restoration import restore_frozen_task_if_needed
+from .task_timer import update_timer
 from ...utils.time_utils import align_seconds
 
 
@@ -209,49 +210,49 @@ async def show_task(update: Update, context: CallbackContext):
         return
 
     row = task_df.iloc[0]
-
-    # Определяем статус задания для отображения
-    if row['status'] == 'Выполняется':
-        if row.get('priority') == '111':
-            status_emoji = "🔥"
-            status_text = "Спец-задание (приоритет 111)"
-        else:
-            status_emoji = "▶️"
-            status_text = "Выполняется"
-    elif row['status'] == 'На доработке':
-        status_emoji = "🔄"
-        status_text = "На доработке"
-    else:  # Заморожено
-        status_emoji = "❄️"
-        status_text = "Заморожено (из-за спец-задания)"
-
-    # Формируем сообщение с задачей
-    task_info = (
-        f"📋 *Текущее задание*\n\n"
-        f"🆔 ID: `{row['id']}`\n"
-        f"📌 Название: *{row['task_name']}*\n"
-        f"📦 Группа: {row['product_group']}\n"
-        f"📍 Слот: {row['slot']}\n"
-        f"🏢 Поставщик: {row.get('provider', 'Не указан')}\n"
-        f"⏰ Время начала: {row['time_begin']}\n"
-        f"⏳ Плановая длительность: {row['task_duration']} мин\n"
-        f"{status_emoji} *Статус:* {status_text}"
-    )
-    if "comment" in row and row["comment"]:
-        task_info += f"\n💬 Комментарий: {row['comment']}"
+    task_id = row['id']
 
     # Показываем кнопку завершения для активных заданий и заданий на доработке
     if row['status'] in ['Выполняется', 'На доработке']:
+        # Формируем сообщение с таймером
+        from ...utils.message_formatter import format_task_message
+        from ...utils.time_utils import hms_to_seconds
+        import asyncio
+        from ...config.settings import active_timers
+        
+        status = "Выполняется" if row['status'] == 'Выполняется' else "На доработке"
+        text = format_task_message(row, status=status)
+        
         # Для спец-заданий показываем специальную кнопку
         if row.get('priority') == '111':
             from ...keyboards.opv_keyboards import get_special_task_keyboard
-            await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_special_task_keyboard())
+            reply_markup = get_special_task_keyboard()
         else:
-            await query.edit_message_text(task_info, parse_mode="Markdown", reply_markup=get_task_keyboard())
+            reply_markup = get_task_keyboard()
+        
+        sent_msg = await query.edit_message_text(text, reply_markup=reply_markup)
+        
+        # Запускаем таймер если его еще нет
+        if task_id not in active_timers:
+            total_seconds = hms_to_seconds(row['task_duration'])
+            task_dict = {
+                'task_id': task_id,
+                'task_name': row['task_name'],
+                'product_group': row.get('product_group', 'Не указана'),
+                'slot': row.get('slot', 'Не указан'),
+                'provider': row.get('provider', 'Не указан')
+            }
+            asyncio.create_task(
+                update_timer(context, sent_msg.chat_id, sent_msg.message_id, task_dict, total_seconds, reply_markup)
+            )
     else:
-        # Для замороженных заданий показываем только информацию
-        task_info += f"\n\n*ℹ️ Задание заморожено. Завершите спец-задание, чтобы продолжить.*"
-        await query.edit_message_text(task_info, parse_mode="Markdown")
+        # Для замороженных заданий показываем только информацию без таймера
+        from ...utils.message_formatter import format_task_message
+        
+        text = format_task_message(row, status="Заморожено", show_timer=False)
+        text += "\n\nℹ️ Задание заморожено. Завершите спец-задание, чтобы продолжить."
+        
+        await query.edit_message_text(text)
 
 
 async def complete_the_task(update: Update, context: CallbackContext):

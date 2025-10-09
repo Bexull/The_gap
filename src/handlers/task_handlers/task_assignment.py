@@ -165,26 +165,13 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
         context.user_data.pop('photo_request_time', None)
         context.user_data['late_warning_sent'] = False
 
-        # Формируем сообщение с таймером
-        message = (
-            f"📄 *Номер задания:* {task_row['id']}\n"
-            f"✅ *Задание получено!*\n\n"
-            f"📝 *Наименование:* {task_row['task_name']}\n"
-            f"📦 *Группа товаров:* {task_row.get('product_group', '—')}\n"
-            f"📍 *Слот:* {task_row['slot']}\n"
-            f"🏢 *Поставщик:* {task_row.get('provider', 'Не указан')}\n"
-            f"⏱ *Выделенное время:* {str(timedelta(seconds=total_seconds))}\n"
-            f"⏳ *Оставшееся время:* {str(timedelta(seconds=total_seconds))}"
-        )
-
-        # Если есть комментарий — добавляем в сообщение
-        comment = task_row.get('comment')
-        if comment and str(comment).strip():
-            message += f"\n💬 *Комментарий:* {comment}"
+        # Формируем сообщение с таймером используя централизованную функцию
+        from ...utils.message_formatter import format_task_message
+        message = format_task_message(task_row, status="Получено")
 
         # Добавляем клавиатуру с кнопкой "Завершить задачу"
         reply_markup = get_task_in_progress_keyboard()
-        sent_msg = await query.edit_message_text(message, parse_mode='Markdown', reply_markup=reply_markup)
+        sent_msg = await query.edit_message_text(message, reply_markup=reply_markup)
 
         # Запускаем таймер!
         import asyncio
