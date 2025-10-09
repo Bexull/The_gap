@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import datetime as dt
 from telegram import InputMediaPhoto
-from ..config.settings import ZS_GROUP_CHAT_ID, TOPIC_IDS, frozen_tasks_info, task_time_tracker
+from ..config.settings import ZS_GROUP_CHAT_ID, TOPIC_IDS
 from ..keyboards.opv_keyboards import get_task_keyboard
 from ..keyboards.zs_keyboards import get_zs_review_keyboard
 from ..utils.time_utils import align_seconds, seconds_to_hms
@@ -90,14 +90,8 @@ async def send_task_to_zs(context, task: dict, photos: list):
         from .freeze_time_utils import read_freeze_time
         
         # Читаем накопленное время из БД
+        # freeze_time уже содержит полное время выполнения (обновлено перед вызовом этой функции)
         elapsed_seconds = read_freeze_time(task_id)
-        
-        # Добавляем время текущей сессии, если таймер еще активен
-        tracker_entry = task_time_tracker.get(task_id)
-        if tracker_entry:
-            current_session = tracker_entry.get('elapsed_seconds', 0)
-            elapsed_seconds += current_session
-            print(f"⏱️ [TIMER] task={task_id} db={elapsed_seconds - current_session}s + session={current_session}s = total={elapsed_seconds}s")
         
         elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
         time_spent = timedelta(seconds=elapsed_seconds)

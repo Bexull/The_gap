@@ -43,6 +43,8 @@ async def schedule_tasks_from_rules(context):
               AND merchant_code = '{MERCHANT_ID}'
         """)
         
+        print(f"🔍 Найдено заданий: {len(schedule_df)}")
+        
         if schedule_df.empty:
             print(f"📭 Нет заданий на смену {shift_ru} за {today}")
             return
@@ -210,6 +212,14 @@ async def schedule_tasks_from_rules(context):
                 
                 # Заморозка активных заданий ОПВ
                 if not active_tasks_df.empty:
+                    from ..utils.freeze_time_utils import update_freeze_time_on_pause
+                    
+                    # Обновляем freeze_time для каждого активного задания ПЕРЕД заморозкой
+                    for _, task_row in active_tasks_df.iterrows():
+                        task_id = int(task_row['id'])
+                        update_freeze_time_on_pause(task_id)
+                    
+                    # Обновляем статус на "Заморожено"
                     SQL.sql_delete('wms', f"""
                         UPDATE wms_bot.shift_tasks
                         SET status = 'Заморожено'
@@ -221,56 +231,6 @@ async def schedule_tasks_from_rules(context):
                         )
                     """)
                 
-                # Сохраняем информацию о замороженных заданиях для восстановления
-                from ..config.settings import frozen_tasks_info
-                for _, task_row in active_tasks_df.iterrows():
-                    task_id = int(task_row['id'])
-                    
-                    # Получаем время начала задания для сохранения original_start_time
-                    task_time_info = SQL.sql_select('wms', f"""
-                        SELECT time_begin, task_duration FROM wms_bot.shift_tasks
-                        WHERE id = {task_id}
-                    """)
-                    
-                    if not task_time_info.empty:
-                        time_begin = task_time_info.iloc[0]['time_begin']
-                        task_duration = task_time_info.iloc[0]['task_duration']
-                        
-                        # Вычисляем прошедшее и оставшееся время
-                        elapsed_seconds = 0
-                        original_start_time = now  # По умолчанию текущее время
-                        
-                        if time_begin:
-                            try:
-                                if isinstance(time_begin, str):
-                                    time_begin = datetime.strptime(time_begin, '%Y-%m-%d %H:%M:%S')
-                                elif hasattr(time_begin, 'hour') and not hasattr(time_begin, 'year'):
-                                    today = datetime.today().date()
-                                    time_begin = datetime.combine(today, time_begin)
-                                
-                                original_start_time = time_begin
-                                elapsed_seconds = int((now - time_begin).total_seconds())
-                            except Exception as e:
-                                print(f"      ⚠️ Ошибка при вычислении времени: {e}")
-                        
-                        # Парсим длительность задания
-                        try:
-                            from ..utils.task_utils import parse_task_duration
-                            full_duration = parse_task_duration(task_duration)
-                        except Exception:
-                            full_duration = 900
-                        
-                        remaining_seconds = max(0, full_duration - elapsed_seconds)
-                        
-                        # Сохраняем информацию о замороженном задании
-                        frozen_tasks_info[task_id] = {
-                            'freeze_time': now,
-                            'elapsed_seconds': elapsed_seconds,
-                            'remaining_seconds': remaining_seconds,
-                            'allocated_seconds': int(elapsed_seconds + remaining_seconds),
-                            'original_start_time': original_start_time
-                        }
-                
                 # Останавливаем таймеры и отправляем уведомления о заморозке
                 for _, task_row in active_tasks_df.iterrows():
                     task_id = int(task_row['id'])
@@ -280,8 +240,8 @@ async def schedule_tasks_from_rules(context):
                     try:
                         from ..config.settings import active_timers
                         if task_id in active_timers:
-                            from ..handlers.task_handlers import stop_timer_for_task
-                            await stop_timer_for_task(task_id, context, "задание заморожено из-за спец-задания")
+                            from ..handlers.task_handlers.task_timer import stop_timer
+                            await stop_timer(task_id)
                     except Exception as timer_error:
                         print(f"⚠️ Ошибка остановки таймера для задания {task_id}: {timer_error}")
                     

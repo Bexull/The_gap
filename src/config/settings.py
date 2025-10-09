@@ -10,7 +10,7 @@ MODE = 'test'  # Измените на нужный режим
 
 CONFIGS = {
     'test': {
-        'TOKEN': '8390538420:AAGtXHSvHpvGOSeaJ86jOnh7m-ec1uz1j0I',
+        'TOKEN': '8390538420:AAG2I_hUmJq_s5jovhrucOYuQDO2RVYIcyk',
         'ADMIN_ID': 1015079692,
         'ZS_GROUP_CHAT_ID': -1003089690648,
         'MERCHANT_ID': 6011,
@@ -133,9 +133,7 @@ active_tasks = {}
 zav_on_shift = []
 task_assignments = {}  # {task_num: кол-во уже выданных}
 assignments = []
-active_timers = {}  # {task_id: {'chat_id': int, 'message_id': int, 'task': dict, 'allocated_seconds': int, 'reply_markup': obj}}
-frozen_tasks_info = {}  # {task_id: {'freeze_time': datetime, 'original_start_time': datetime}}
-task_time_tracker = {}  # {task_id: {'elapsed_seconds': float, 'allocated_seconds': int, 'last_tick': datetime, 'original_start_time': datetime, 'remaining_seconds': int}}
+active_timers = {}  # {task_id: {'chat_id': int, 'message_id': int, 'task': dict, 'allocated_seconds': int, 'reply_markup': obj}} - ТОЛЬКО для UI таймеров
 
 # =============================================================================
 # КОНСТАНТЫ

@@ -21,9 +21,6 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
     query = update.callback_query
     staff_id = context.user_data.get('staff_id')
     
-    # Импортируем глобальное хранилище в начале функции
-    from ...config.settings import frozen_tasks_info
-    
     try:
         now = datetime.now()
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -63,26 +60,14 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
             # Восстанавливаем замороженное задание
             frozen_task = frozen_task_df.iloc[0]
             now_str = now.strftime('%Y-%m-%d %H:%M:%S')
-            # Получаем task_id для проверки frozen_tasks_info
             frozen_task_id = int(frozen_task['id'])
             
-            # Определяем время начала - используем original_start_time если доступен
-            time_begin_to_use = now_str  # По умолчанию текущее время
-            if frozen_task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[frozen_task_id]:
-                original_start_time = frozen_tasks_info[frozen_task_id]['original_start_time']
-                if isinstance(original_start_time, datetime):
-                    time_begin_to_use = original_start_time.strftime('%Y-%m-%d %H:%M:%S')
-                    print(f"🔧 [FIX] Используем оригинальное время начала для восстановленного задания {frozen_task_id}: {time_begin_to_use}")
-                else:
-                    print(f"⚠️ [WARNING] original_start_time для восстановленного задания {frozen_task_id} не является datetime объектом: {type(original_start_time)}")
-            else:
-                print(f"⚠️ [WARNING] Нет информации о original_start_time для восстановленного задания {frozen_task_id}, используем текущее время")
-            
+            # Устанавливаем время начала для разморозки
             SQL.sql_delete('wms', f"""
                 UPDATE wms_bot.shift_tasks
                 SET status = 'Выполняется',
-                    time_begin = '{time_begin_to_use}'
-                WHERE id = {frozen_task['id']}
+                    time_begin = '{now_str}'
+                WHERE id = {frozen_task_id}
             """)
             
             # Перезапускаем таймер для восстановленного задания
@@ -167,12 +152,6 @@ async def complete_special_task_directly(update: Update, context: CallbackContex
         else:
             # Просто показываем сообщение об успешном завершении
             await query.edit_message_text(success_message)
-        
-        # Очищаем данные о задании из глобального хранилища
-        task_id = task['task_id']
-        if task_id in frozen_tasks_info:
-            del frozen_tasks_info[task_id]
-            print(f"🧹 Удалены данные о замороженном задании {task_id} из глобального хранилища")
         
         # Очищаем контекст
         context.user_data.pop('task', None)

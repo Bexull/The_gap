@@ -71,31 +71,14 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
         frozen_task = frozen_task_df.iloc[0]
         now = datetime.now()
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Импортируем глобальное хранилище
-        from ...config.settings import frozen_tasks_info
-        
-        # Получаем task_id для проверки frozen_tasks_info
         task_id = int(frozen_task['id'])
         
-        # Определяем время начала - используем original_start_time если доступен
-        time_begin_to_use = now_str  # По умолчанию текущее время
-        if task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
-            original_start_time = frozen_tasks_info[task_id]['original_start_time']
-            if isinstance(original_start_time, datetime):
-                time_begin_to_use = original_start_time.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"🔧 [FIX] Используем оригинальное время начала для задания {task_id}: {time_begin_to_use}")
-            else:
-                print(f"⚠️ [WARNING] original_start_time для задания {task_id} не является datetime объектом: {type(original_start_time)}")
-        else:
-            print(f"⚠️ [WARNING] Нет информации о original_start_time для задания {task_id}, используем текущее время")
-        
-        # Обновляем статус задания на "Выполняется" с правильным временем начала
+        # Обновляем статус задания на "Выполняется" и устанавливаем time_begin
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Выполняется',
-                time_begin = '{time_begin_to_use}'
-            WHERE id = {frozen_task['id']}
+                time_begin = '{now_str}'
+            WHERE id = {task_id}
         """)
         
         # Отправляем сообщение с деталями восстановленного задания только если запрошено

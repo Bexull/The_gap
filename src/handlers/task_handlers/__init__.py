@@ -19,7 +19,7 @@ from .special_task_completion import complete_special_task_directly
 from .auto_special_task_handler import handle_special_task_assignment, auto_assign_special_task
 
 # Импорты из task_timer.py
-from .task_timer import update_timer, stop_timer_for_task
+from .task_timer import update_timer, stop_timer
 
 # Импорты из special_tasks.py
 from .special_tasks import (
@@ -58,7 +58,7 @@ __all__ = [
     
     # Task timer
     'update_timer',
-    'stop_timer_for_task',
+    'stop_timer',
     
     # Special tasks
     'complete_special_task_inline',

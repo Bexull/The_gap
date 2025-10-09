@@ -1,10 +1,10 @@
 """
-Утилиты для работы с freeze_time в БД
-Единый источник правды для накопления времени выполнения заданий
+Утилиты для работы с time_begin и freeze_time в БД
+БД - единственный источник истины для учета времени выполнения заданий
 """
 
 import datetime as dt
-from datetime import timedelta
+from datetime import datetime, timedelta
 from ..database.sql_client import SQL
 from ..config.settings import MERCHANT_ID
 
@@ -51,19 +51,72 @@ def parse_freeze_time_from_db(freeze_time_raw) -> int:
         return 0
 
 
-def read_freeze_time(task_id: int) -> int:
+def parse_time_begin_from_db(time_begin_raw):
     """
-    Читает freeze_time из БД для задания
+    Парсит time_begin из БД в datetime
+    
+    Args:
+        time_begin_raw: значение из БД (может быть None, datetime, str, time)
+    
+    Returns:
+        datetime или None
+    """
+    if time_begin_raw is None:
+        return None
+    
+    try:
+        # Если это уже datetime объект
+        if isinstance(time_begin_raw, datetime):
+            return time_begin_raw
+        
+        # Если это строка - парсим
+        if isinstance(time_begin_raw, str):
+            time_begin_raw = time_begin_raw.strip()
+            
+            # Формат YYYY-MM-DD HH:MM:SS
+            if ' ' in time_begin_raw:
+                return datetime.strptime(time_begin_raw, '%Y-%m-%d %H:%M:%S')
+            # Формат HH:MM:SS (добавляем сегодняшнюю дату)
+            elif ':' in time_begin_raw:
+                time_part = datetime.strptime(time_begin_raw, '%H:%M:%S').time()
+                return datetime.combine(datetime.today(), time_part)
+        
+        # Если это time объект
+        if isinstance(time_begin_raw, dt.time):
+            return datetime.combine(datetime.today(), time_begin_raw)
+        
+        return None
+    except Exception as e:
+        print(f"❌ [ERROR] Ошибка парсинга time_begin: {time_begin_raw}, ошибка: {e}")
+        return None
+
+
+def seconds_to_time_str(seconds: int) -> str:
+    """Конвертирует секунды в строку формата HH:MM:SS"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def get_task_timing_info(task_id: int) -> dict:
+    """
+    Получает информацию о времени задания из БД
     
     Args:
         task_id: ID задания
     
     Returns:
-        int: накопленное время в секундах (0 если не найдено)
+        dict: {
+            'time_begin': datetime или None,
+            'freeze_time': int (секунды),
+            'task_duration': int (секунды),
+            'status': str
+        }
     """
     try:
         df = SQL.sql_select('wms', f"""
-            SELECT freeze_time
+            SELECT time_begin, freeze_time, task_duration, status
             FROM wms_bot.shift_tasks
             WHERE id = {task_id}
             AND merchant_code = '{MERCHANT_ID}'
@@ -71,35 +124,210 @@ def read_freeze_time(task_id: int) -> int:
         """)
         
         if df.empty:
-            print(f"ℹ️ [INFO] Задание {task_id} не найдено в БД")
-            return 0
+            print(f"⚠️ [WARNING] Задание {task_id} не найдено в БД")
+            return {
+                'time_begin': None,
+                'freeze_time': 0,
+                'task_duration': 0,
+                'status': None
+            }
         
-        freeze_time_raw = df.iloc[0]['freeze_time']
-        elapsed_seconds = parse_freeze_time_from_db(freeze_time_raw)
+        row = df.iloc[0]
         
-        print(f"📖 [READ] task={task_id} freeze_time_db={freeze_time_raw} → {elapsed_seconds}s")
-        return elapsed_seconds
+        # Парсим time_begin
+        time_begin = parse_time_begin_from_db(row.get('time_begin'))
+        
+        # Парсим freeze_time
+        freeze_time_seconds = parse_freeze_time_from_db(row.get('freeze_time'))
+        
+        # Парсим task_duration
+        task_duration_raw = row.get('task_duration')
+        if isinstance(task_duration_raw, dt.time):
+            task_duration_seconds = task_duration_raw.hour * 3600 + task_duration_raw.minute * 60 + task_duration_raw.second
+        elif isinstance(task_duration_raw, timedelta):
+            task_duration_seconds = int(task_duration_raw.total_seconds())
+        elif isinstance(task_duration_raw, (int, float)):
+            task_duration_seconds = int(task_duration_raw)
+        else:
+            task_duration_seconds = 0
+        
+        return {
+            'time_begin': time_begin,
+            'freeze_time': freeze_time_seconds,
+            'task_duration': task_duration_seconds,
+            'status': row.get('status')
+        }
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка чтения freeze_time для задания {task_id}: {e}")
-        return 0
+        print(f"❌ [ERROR] Ошибка получения timing info для задания {task_id}: {e}")
+        return {
+            'time_begin': None,
+            'freeze_time': 0,
+            'task_duration': 0,
+            'status': None
+        }
+
+
+def calculate_remaining_time(task_id: int) -> int:
+    """
+    Вычисляет оставшееся время выполнения задания
+    
+    Формула: remaining = task_duration - freeze_time - (now - time_begin)
+    
+    Args:
+        task_id: ID задания
+    
+    Returns:
+        int: оставшееся время в секундах (может быть отрицательным если просрочено)
+    """
+    info = get_task_timing_info(task_id)
+    
+    task_duration = info['task_duration']
+    freeze_time = info['freeze_time']
+    time_begin = info['time_begin']
+    
+    # Вычисляем время текущей сессии
+    if time_begin is not None:
+        current_session_seconds = int((datetime.now() - time_begin).total_seconds())
+    else:
+        current_session_seconds = 0
+    
+    # Вычисляем оставшееся время
+    remaining = task_duration - freeze_time - current_session_seconds
+    
+    return remaining
+
+
+def update_freeze_time_on_pause(task_id: int):
+    """
+    Обновляет freeze_time при паузе задания (отправка на проверку, заморозка)
+    
+    Вычисляет delta = now() - time_begin и прибавляет к freeze_time
+    Затем устанавливает time_begin = NULL
+    
+    Args:
+        task_id: ID задания
+    """
+    try:
+        info = get_task_timing_info(task_id)
+        
+        if info['time_begin'] is None:
+            print(f"⚠️ [WARNING] task={task_id} time_begin уже NULL, пропускаем обновление freeze_time")
+            return
+        
+        # Вычисляем время текущей сессии
+        delta_seconds = int((datetime.now() - info['time_begin']).total_seconds())
+        
+        # Новое накопленное время
+        new_freeze_time_seconds = info['freeze_time'] + delta_seconds
+        new_freeze_time_str = seconds_to_time_str(new_freeze_time_seconds)
+        
+        # Обновляем в БД
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET freeze_time = '{new_freeze_time_str}',
+                time_begin = NULL
+            WHERE id = {task_id}
+            AND merchant_code = '{MERCHANT_ID}'
+        """)
+        
+        print(f"💾 [PAUSE] task={task_id} freeze_time: {info['freeze_time']}s + {delta_seconds}s = {new_freeze_time_seconds}s ({new_freeze_time_str}), time_begin=NULL")
+        
+    except Exception as e:
+        print(f"❌ [ERROR] Ошибка обновления freeze_time для задания {task_id}: {e}")
+
+
+def reset_time_begin(task_id: int):
+    """
+    Устанавливает time_begin = NOW() для возобновления задания
+    (возврат на доработку, разморозка, взятие задания)
+    
+    Args:
+        task_id: ID задания
+    """
+    try:
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET time_begin = '{now_str}'
+            WHERE id = {task_id}
+            AND merchant_code = '{MERCHANT_ID}'
+        """)
+        
+        print(f"▶️ [START] task={task_id} time_begin={now_str}")
+        
+    except Exception as e:
+        print(f"❌ [ERROR] Ошибка установки time_begin для задания {task_id}: {e}")
+
+
+def clear_time_begin(task_id: int):
+    """
+    Устанавливает time_begin = NULL при паузе задания
+    (Используется если freeze_time уже обновлен отдельно)
+    
+    Args:
+        task_id: ID задания
+    """
+    try:
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET time_begin = NULL
+            WHERE id = {task_id}
+            AND merchant_code = '{MERCHANT_ID}'
+        """)
+        
+        print(f"⏸️ [PAUSE] task={task_id} time_begin=NULL")
+        
+    except Exception as e:
+        print(f"❌ [ERROR] Ошибка очистки time_begin для задания {task_id}: {e}")
+
+
+def reset_freeze_time(task_id: int):
+    """
+    Обнуляет freeze_time (при взятии нового задания)
+    
+    Args:
+        task_id: ID задания
+    """
+    try:
+        SQL.sql_delete('wms', f"""
+            UPDATE wms_bot.shift_tasks
+            SET freeze_time = '00:00:00'
+            WHERE id = {task_id}
+            AND merchant_code = '{MERCHANT_ID}'
+        """)
+        
+        print(f"🔄 [RESET] task={task_id} freeze_time=00:00:00")
+        
+    except Exception as e:
+        print(f"❌ [ERROR] Ошибка сброса freeze_time для задания {task_id}: {e}")
+
+
+# ============================================================================
+# УСТАРЕВШИЕ ФУНКЦИИ (для обратной совместимости, будут удалены позже)
+# ============================================================================
+
+def read_freeze_time(task_id: int) -> int:
+    """
+    УСТАРЕЛО: Используйте get_task_timing_info() вместо этого
+    
+    Читает freeze_time из БД для задания
+    """
+    info = get_task_timing_info(task_id)
+    freeze_time = info['freeze_time']
+    print(f"📖 [READ] task={task_id} freeze_time={freeze_time}s")
+    return freeze_time
 
 
 def save_freeze_time(task_id: int, total_seconds: int):
     """
-    Сохраняет накопленное время в БД
+    УСТАРЕЛО: Используйте update_freeze_time_on_pause() или reset_freeze_time()
     
-    Args:
-        task_id: ID задания
-        total_seconds: общее накопленное время в секундах
+    Сохраняет накопленное время в БД
     """
     try:
-        # Конвертируем секунды в TIME формат (HH:MM:SS)
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = int(total_seconds % 60)
-        
-        formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        formatted_time = seconds_to_time_str(total_seconds)
         
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
@@ -116,14 +344,9 @@ def save_freeze_time(task_id: int, total_seconds: int):
 
 def accumulate_freeze_time(task_id: int, current_session_seconds: float) -> int:
     """
+    УСТАРЕЛО: Используйте update_freeze_time_on_pause()
+    
     Накапливает время: читает старое из БД, прибавляет новое, сохраняет
-    
-    Args:
-        task_id: ID задания
-        current_session_seconds: время текущей сессии в секундах
-    
-    Returns:
-        int: общее накопленное время в секундах
     """
     try:
         # 1. Читаем предыдущее накопленное время из БД
@@ -146,14 +369,8 @@ def accumulate_freeze_time(task_id: int, current_session_seconds: float) -> int:
 
 def clear_freeze_time(task_id: int):
     """
-    Очищает freeze_time в БД (устанавливает в 00:00:00)
+    УСТАРЕЛО: Используйте reset_freeze_time()
     
-    Args:
-        task_id: ID задания
+    Очищает freeze_time в БД (устанавливает в 00:00:00)
     """
-    try:
-        save_freeze_time(task_id, 0)
-        print(f"🧹 [CLEAR] task={task_id} freeze_time очищен")
-    except Exception as e:
-        print(f"❌ [ERROR] Ошибка очистки freeze_time для задания {task_id}: {e}")
-
+    reset_freeze_time(task_id)

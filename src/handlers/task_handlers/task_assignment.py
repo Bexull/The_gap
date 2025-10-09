@@ -129,6 +129,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
             SET status = 'Выполняется',
                 user_id = '{employee_id}',
                 time_begin = '{now_str}',
+                freeze_time = '00:00:00',
                 part_time = '{employment_type}',
                 operator_name = '{operator_full_name}'
             WHERE id = {task_row['id']}
@@ -187,7 +188,7 @@ async def assign_task_from_sector(update: Update, context: CallbackContext):
 
         # Запускаем таймер!
         import asyncio
-        from ...config.settings import active_timers, frozen_tasks_info
+        from ...config.settings import active_timers
         
         # Проверяем, есть ли уже активный таймер для этого задания
         if task['task_id'] in active_timers:

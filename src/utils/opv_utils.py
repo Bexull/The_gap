@@ -13,7 +13,21 @@ def get_free_opv_for_special_tasks():
         shift_en = 'day' if 8 <= now.hour < 20 else 'night'
         
         # Получаем свободных ОПВ
-        opv_df = SQL.sql_select('wms', f"""
+        print(f"🔍 Поиск свободных ОПВ для смены: {shift_ru} ({shift_en})")
+        
+        # Сначала проверим, есть ли вообще активные сессии
+        all_sessions_df = SQL.sql_select('wms', f"""
+            SELECT ss.employee_id, ss.role, ss.shift_type, ss.end_time, bs.gender, concat(bs."name", ' ', bs.surname) AS fio
+            FROM wms_bot.shift_sessions1 ss
+            LEFT JOIN wms_bot.t_staff bs ON bs.id = ss.employee_id::int
+            WHERE ss.start_time::date = current_date
+        """)
+        print(f"📊 Всего сессий за сегодня: {len(all_sessions_df)}")
+        if not all_sessions_df.empty:
+            print(f"👥 Все сессии: {all_sessions_df[['employee_id', 'role', 'shift_type', 'end_time']].to_string()}")
+        
+        # Логируем запрос для отладки
+        query_sql = f"""
             SELECT DISTINCT ss.employee_id, bs.gender, concat(bs."name", ' ', bs.surname) AS fio, ba.userid
             FROM wms_bot.shift_sessions1 ss
             JOIN wms_bot.t_staff bs ON bs.id = ss.employee_id::int
@@ -32,7 +46,15 @@ def get_free_opv_for_special_tasks():
                     AND st.priority = 111
                     AND st.time_end IS null
                     AND st.merchant_code = '{MERCHANT_ID}')
-        """)
+        """
+        print(f"🔍 SQL запрос для поиска ОПВ:")
+        print(f"📝 {query_sql}")
+        
+        opv_df = SQL.sql_select('wms', query_sql)
+        
+        print(f"📊 Найдено свободных ОПВ: {len(opv_df)}")
+        if not opv_df.empty:
+            print(f"👥 Свободные ОПВ: {', '.join(opv_df['fio'].tolist())}")
         
         return opv_df, shift_ru, shift_en
         

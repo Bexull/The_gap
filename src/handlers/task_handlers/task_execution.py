@@ -113,43 +113,24 @@ async def complete_task_inline(update: Update, context: CallbackContext):
 
     # Завершаем задание
     now = datetime.now()
-    
-    # Проверяем, было ли задание заморожено и восстановлено
-    from ...config.settings import frozen_tasks_info, task_time_tracker
-    
     task_id = task['task_id']
     
-    tracker_entry = task_time_tracker.get(task_id)
-    
-    if tracker_entry:
-        elapsed_seconds = tracker_entry.get('elapsed_seconds', 0)
-    elif task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
-        # Используем original_start_time если есть
-        original_start_time = frozen_tasks_info[task_id]['original_start_time']
-        elapsed_seconds = (now - original_start_time).total_seconds()
-    else:
-        elapsed_seconds = (now - task['assigned_time']).total_seconds()
-    
-    elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
-    time_spent = timedelta(seconds=elapsed_seconds)
+    # Обновляем freeze_time (накапливаем время текущей сессии из БД)
+    from ...utils.freeze_time_utils import update_freeze_time_on_pause
+    update_freeze_time_on_pause(task_id)
 
     try:
-        # Обновляем статус и время окончания
+        # Обновляем статус на "Ожидает проверки" (это остановит таймер)
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Ожидает проверки',
                 time_end = '{now_str}'
-            WHERE id = {task['task_id']}
+            WHERE id = {task_id}
         """)
 
         await query.edit_message_text("✅ Задание отправлено на проверку заведующему.")
         await send_task_to_zs(context, task, context.user_data['photos'])
-
-        # Очищаем данные о задании из глобального хранилища
-        if task_id in frozen_tasks_info:
-            del frozen_tasks_info[task_id]
-            print(f"🧹 Удалены данные о замороженном задании {task_id} из глобального хранилища")
         
         # Очищаем контекст
         context.user_data.pop('task', None)
@@ -374,40 +355,24 @@ async def complete_the_task(update: Update, context: CallbackContext):
 
     # Завершаем обычное задание
     now = datetime.now()
-    
-    # Вычисляем время выполнения
-    from ...config.settings import frozen_tasks_info, task_time_tracker
     task_id = task['task_id']
     
-    # Если есть tracker, используем его (более точное время)
-    if task_id in task_time_tracker:
-        elapsed_seconds = task_time_tracker[task_id].get('elapsed_seconds', 0)
-        time_spent = timedelta(seconds=elapsed_seconds)
-    elif task_id in frozen_tasks_info and 'original_start_time' in frozen_tasks_info[task_id]:
-        # Используем original_start_time если есть
-        original_start_time = frozen_tasks_info[task_id]['original_start_time']
-        time_spent = now - original_start_time
-    else:
-        # Иначе стандартное время
-        time_spent = now - task['assigned_time']
+    # Обновляем freeze_time (накапливаем время текущей сессии из БД)
+    from ...utils.freeze_time_utils import update_freeze_time_on_pause
+    update_freeze_time_on_pause(task_id)
 
     try:
-        # Обновляем статус и время окончания
+        # Обновляем статус на "Ожидает проверки" (это остановит таймер)
         now_str = now.strftime('%Y-%m-%d %H:%M:%S')
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Ожидает проверки',
                 time_end = '{now_str}'
-            WHERE id = {task['task_id']}
+            WHERE id = {task_id}
         """)
 
         await update.message.reply_text("✅ Задание отправлено на проверку заведующему.")
         await send_task_to_zs(context, task, context.user_data['photos'])
-
-        # Очищаем данные о задании из глобального хранилища
-        if task_id in frozen_tasks_info:
-            del frozen_tasks_info[task_id]
-            print(f"🧹 Удалены данные о замороженном задании {task_id} из глобального хранилища")
         
         # Очищаем контекст
         context.user_data.pop('task', None)

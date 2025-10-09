@@ -362,10 +362,12 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
 
         # Обновляем статус с экранированием кавычек
         escaped_reason = reason.replace("'", "''")
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         SQL.sql_delete('wms', f"""
             UPDATE wms_bot.shift_tasks
-            SET status = 'На доработке'
+            SET status = 'На доработке',
+                time_begin = '{now_str}'
             WHERE id = {task_id}
         """)
         
@@ -449,15 +451,10 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             )
             print(f"✅ Сообщение о возврате отправлено ОПВ {opv_user_id}")
 
-            from ..config.settings import active_timers, frozen_tasks_info
+            from ..config.settings import active_timers
             from ..handlers.task_handlers import update_timer
 
-            # Minimal frozen info
-            frozen_tasks_info[task_id] = {
-                'freeze_time': datetime.now(),
-                'original_start_time': assigned_time
-            }
-
+            # Останавливаем старый таймер если есть
             if task_id in active_timers:
                 del active_timers[task_id]
 

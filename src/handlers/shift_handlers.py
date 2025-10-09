@@ -51,13 +51,12 @@ async def role_choice(update: Update, context: CallbackContext):
             'employee_id': context.user_data['staff_id'],
             'role': role,
             'shift_type': shift,
-            'employment_type': context.user_data.get('employment_type', 'main'),
+            'merchantid': MERCHANT_ID,
             'start_time': datetime.now(),
             'end_time': None,
-            'load_date': pd.to_datetime('today').date(),
-            'merchantid': MERCHANT_ID 
+            'load_date': pd.to_datetime('today').date()
         }])
-        SQL.sql_execute_df('wms', session_row, 'wms_bot.shift_sessions1')
+        SQL.sql_execute_df('wms', session_row, 'wms_bot.shift_sessions1(employee_id, role, shift_type, merchantid, start_time, end_time, load_date)')
     except Exception as e:
         print(f"❌ Ошибка записи начала смены: {e}")
 
