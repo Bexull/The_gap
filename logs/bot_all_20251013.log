@@ -1,0 +1,56 @@
+2025-10-13 14:00:07 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED8C9D30>
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x00000212EC623E30> server_hostname='api.telegram.org' timeout=5.0
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED897C50>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Mon, 13 Oct 2025 09:00:05 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'250'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - response_closed.started
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - response_closed.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Mon, 13 Oct 2025 09:00:05 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'68'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - response_closed.started
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - response_closed.complete
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED962490>
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x00000212EC644230> server_hostname='api.telegram.org' timeout=5.0
+2025-10-13 14:00:07 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED89E520>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-10-13 14:00:07 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Server', b'nginx/1.18.0'), (b'Date', b'Mon, 13 Oct 2025 09:00:06 GMT'), (b'Content-Type', b'application/json'), (b'Content-Length', b'2457'), (b'Connection', b'keep-alive'), (b'Strict-Transport-Security', b'max-age=31536000; includeSubDomains; preload'), (b'Access-Control-Allow-Origin', b'*'), (b'Access-Control-Allow-Methods', b'GET, POST, OPTIONS'), (b'Access-Control-Expose-Headers', b'Content-Length,Content-Type,Date,Server,Connection')])
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - response_closed.started
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - response_closed.complete
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-10-13 14:00:08 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:10 - httpcore.http11 - DEBUG - receive_response_headers.failed exception=CancelledError()
+2025-10-13 14:00:10 - httpcore.http11 - DEBUG - response_closed.started
+2025-10-13 14:00:10 - httpcore.http11 - DEBUG - response_closed.complete
+2025-10-13 14:00:10 - httpcore.connection - DEBUG - connect_tcp.started host='api.telegram.org' port=443 local_address=None timeout=5.0 socket_options=None
+2025-10-13 14:00:10 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED89F6F0>
+2025-10-13 14:00:10 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x00000212EC644230> server_hostname='api.telegram.org' timeout=5.0
+2025-10-13 14:00:11 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.anyio.AnyIOStream object at 0x00000212ED867BF0>
+2025-10-13 14:00:11 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-10-13 14:00:11 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-10-13 14:00:11 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-10-13 14:00:11 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-10-13 14:00:11 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>

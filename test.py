@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8358310264:AAF0FZLWxRSWTqGTuCeidot9covg6IsqCSM" #ТОКЕН bekzhan_ds
+TOKEN = "8390538420:AAG2I_hUmJq_s5jovhrucOYuQDO2RVYIcyk" #ТОКЕН bekzhan_ds
 
 # Сохраняем топики по чатам {chat_id: {topic_id: topic_name}}
 chat_topics = {}
