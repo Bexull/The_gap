@@ -144,7 +144,7 @@ async def restore_frozen_task_if_needed(staff_id: str, context: CallbackContext 
                     # Проверяем, есть ли уже активный таймер для этого задания
                     from ...config.settings import active_timers
                     if task_id in active_timers:
-                        print(f"⚠️ [WARNING] Таймер для задания {task_id} уже запущен, пропускаем повторный запуск")
+                        pass
                     else:
                         # Запускаем таймер
                         asyncio.create_task(

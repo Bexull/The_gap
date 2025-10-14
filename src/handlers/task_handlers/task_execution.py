@@ -38,7 +38,6 @@ async def complete_task_inline(update: Update, context: CallbackContext):
                 ORDER BY time_begin DESC LIMIT 1
             """)
         except Exception as e:
-            print(f"❌ Ошибка получения задания: {e}")
             await query.edit_message_text("❌ Ошибка подключения к базе данных. Попробуйте позже.")
             return
 
@@ -66,7 +65,6 @@ async def complete_task_inline(update: Update, context: CallbackContext):
             else:
                 assigned_time = pd.to_datetime(time_begin_value)
         except Exception as e:
-            print(f"Ошибка при обработке time_begin_value: {e}")
             # Используем текущее время как запасной вариант
             assigned_time = datetime.now()
 
@@ -296,7 +294,6 @@ async def complete_the_task(update: Update, context: CallbackContext):
         else:
             assigned_time = pd.to_datetime(time_begin_value)
     except Exception as e:
-        print(f"Ошибка при обработке time_begin_value в complete_the_task: {e}")
         # Используем текущее время как запасной вариант
         assigned_time = datetime.now()
 

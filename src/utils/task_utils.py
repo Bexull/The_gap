@@ -23,7 +23,6 @@ def get_topic_id(sector: str) -> int:
         if sector_normalized in topic_sector or topic_sector in sector_normalized:
             return topic_id
     
-    print(f"⚠️ Топик для сектора '{sector_normalized}' не найден в TOPIC_IDS: {list(TOPIC_IDS.keys())}")
     return None
 
 def check_user_task_status(staff_id: str):
@@ -96,10 +95,10 @@ async def send_task_to_zs(context, task: dict, photos: list):
         elapsed_seconds = align_seconds(elapsed_seconds, mode='round')
         time_spent = timedelta(seconds=elapsed_seconds)
         
-        print(f"⏰ [COMPLETE] Задание {task_id} завершено, время выполнения: {time_spent}")
 
         message = (
             f"📬 Задание от *{context.user_data.get('staff_name', 'ОПВ')}* завершено\n"
+            f"🔢 *Номер задания:* {task_id}\n"
             f"📝 *Наименование:* {task.get('task_name', '—')}\n"
             f"📦 *Группа товаров:* {task.get('product_group', '—')}\n"
             f"📍 *Слот:* {task.get('slot', '—')}\n"
@@ -130,7 +129,6 @@ async def send_task_to_zs(context, task: dict, photos: list):
                     return sent_msg.message_id
             except Exception as topic_error:
                 if "Message thread not found" in str(topic_error):
-                    print(f"⚠️ Топик для сектора '{sector}' не найден, отправляем в основной чат")
                     # Отправляем без указания топика
                     if media_group:
                         messages = await context.bot.send_media_group(
@@ -173,7 +171,6 @@ async def send_task_to_zs(context, task: dict, photos: list):
             context.user_data['last_task_message_id'] = message_id
 
     except Exception as e:
-        print(f"❌ Ошибка отправки в ЗС группу: {e}")
         raise
 
 def add_worked_time(context, user_id: int, task_duration_seconds: int):
@@ -186,10 +183,8 @@ def add_worked_time(context, user_id: int, task_duration_seconds: int):
         # Обновляем в контексте
         context.user_data['worked_seconds'] = new_worked_seconds
         
-        print(f"⏰ Обновлено время работы для user_id={user_id}: {current_worked_seconds}s + {task_duration_seconds}s = {new_worked_seconds}s")
         return new_worked_seconds
     except Exception as e:
-        print(f"❌ Ошибка обновления времени работы: {e}")
         return 0
 
 def get_total_worked_time_from_db(staff_id: str, shift: str = None) -> int:
@@ -242,11 +237,9 @@ def get_total_worked_time_from_db(staff_id: str, shift: str = None) -> int:
                     # Если не получается, используем дефолт 15 минут
                     total_seconds += 900
         
-        print(f"⏰ Общее время из БД для staff_id={staff_id} (shift={shift}, date={task_date}): {total_seconds} секунд")
         return total_seconds
         
     except Exception as e:
-        print(f"❌ Ошибка получения времени из БД: {e}")
         return 0
 
 def parse_task_duration(duration_raw) -> int:
@@ -273,7 +266,6 @@ def parse_task_duration(duration_raw) -> int:
                 # Если не получается, используем дефолт 15 минут
                 return 900
     except Exception as e:
-        print(f"❌ Ошибка парсинга времени: {e}")
         return 900  # дефолт 15 минут
 
 def get_task_allocated_seconds(task_duration):

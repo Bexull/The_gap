@@ -1,6 +1,0 @@
-2025-09-30 11:26:43 - asyncio - ERROR - Task was destroyed but it is pending!
-task: <Task pending name='Task-108' coro=<_render_timer_loop() done, defined at C:\Users\bexultan.kobetay\Desktop\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:99> wait_for=<Future pending cb=[Task.task_wakeup()]>>
-2025-09-30 11:26:43 - asyncio - ERROR - Task was destroyed but it is pending!
-task: <Task pending name='Task-82' coro=<_render_timer_loop() running at C:\Users\bexultan.kobetay\Desktop\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:156> wait_for=<Future pending cb=[Task.task_wakeup()]>>
-2025-09-30 11:26:43 - asyncio - ERROR - Task was destroyed but it is pending!
-task: <Task cancelling name='Task-81' coro=<_time_tracker_loop() running at C:\Users\bexultan.kobetay\Desktop\FOR ALL BOTS\The_gap_2\src\handlers\task_handlers\task_timer.py:238> wait_for=<Future cancelled>>

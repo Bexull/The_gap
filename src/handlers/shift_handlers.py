@@ -58,7 +58,7 @@ async def role_choice(update: Update, context: CallbackContext):
         }])
         SQL.sql_execute_df('wms', session_row, 'wms_bot.shift_sessions1(employee_id, role, shift_type, merchantid, start_time, end_time, load_date)')
     except Exception as e:
-        print(f"❌ Ошибка записи начала смены: {e}")
+        pass
 
     if role == 'opv':
         reply_markup = get_employment_keyboard()
@@ -94,10 +94,9 @@ async def employment_type_choice(update: Update, context: CallbackContext):
         with open('employment_choice_log.txt', 'a', encoding='utf-8') as f:
             f.write(log_entry)
     except Exception as e:
-        print(f"⚠️ Ошибка записи в лог: {e}")
+        pass
 
     # Тип занятости сохраняется в context.user_data и будет использован при назначении заданий
-    print(f"✅ Тип занятости '{employment_type}' сохранен в контекст для пользователя {context.user_data['staff_id']}")
 
     # Переход к выбору сектора
     shift = context.user_data.get('shift')
@@ -126,6 +125,18 @@ async def sector_select_and_confirm(update: Update, context: CallbackContext):
         'sector': sector,
         'sector_selected': True
     })
+
+    # Сохраняем сектор в shift_sessions1
+    staff_id = context.user_data.get('staff_id')
+    if staff_id:
+        try:
+            SQL.sql_delete('wms', f"""
+                UPDATE wms_bot.shift_sessions1
+                SET sector = '{sector}'
+                WHERE employee_id = '{staff_id}' AND end_time IS NULL
+            """)
+        except Exception as e:
+            pass
 
     from ..keyboards.opv_keyboards import get_task_confirmation_keyboard
     reply_markup = get_task_confirmation_keyboard()
@@ -216,7 +227,6 @@ async def shift_end(update: Update, context: CallbackContext):
 
 
     except Exception as e:
-        print(f"❌ Ошибка завершения смены: {e}")
         await update.message.reply_text("Ошибка при завершении смены. Обратитесь к администратору.")
 
 async def exit_session(update: Update, context: CallbackContext):

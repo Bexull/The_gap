@@ -103,7 +103,7 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
                     if task_id in active_timers:
                         await stop_timer(task_id)
                 except Exception as e:
-                    print(f"⚠️ Ошибка остановки таймера для задания {task_id}: {e}")
+                    pass
                 
                 # Отправляем уведомление о заморозке ВСЕГДА
                 try:
@@ -126,7 +126,7 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
                             parse_mode='Markdown'
                         )
                 except Exception as notify_error:
-                    print(f"❌ Ошибка отправки уведомления о заморозке для задания {task_id}: {notify_error}")
+                    pass
                 
                 frozen_tasks_list.append({
                     'id': task['id'],
@@ -157,17 +157,17 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
             """)
             if hasattr(frozen_task_df, 'empty') and not frozen_task_df.empty and len(frozen_task_df) > 0:
                 employment_type = frozen_task_df.iloc[0]['part_time'] or 'main'
-                print(f"📋 Замороженное задание имело смену: {employment_type}, берем эту смену")
             else:
-                print(f"⚠️ Замороженных заданий не найдено, используем значение по умолчанию: {employment_type}")
+                pass
         except Exception as e:
-            print(f"⚠️ Ошибка получения типа занятости от замороженного задания: {e}")
+            pass
         
         assign_query = f"""
             UPDATE wms_bot.shift_tasks
             SET status = 'Выполняется',
                 user_id = '{staff_id}',
                 time_begin = '{now_str}',
+                freeze_time = '00:00:00',
                 part_time = '{employment_type}',
                 operator_name = '{operator_full_name}'
             WHERE id = {special_task_id}
@@ -189,7 +189,6 @@ async def handle_special_task_assignment(staff_id: str, special_task_id: int, co
         }
         
     except Exception as e:
-        print(f"❌ Ошибка при назначении спец-задания {special_task_id}: {e}")
         return {
             'success': False,
             'error': str(e),
@@ -323,7 +322,6 @@ async def auto_assign_special_task(staff_id: str, context: CallbackContext = Non
         
         special_task_df = SQL.sql_select('wms', special_task_query)
         
-        print(f"🔍 Найдено спец-заданий с приоритетом 111: {len(special_task_df)}")
         
         if special_task_df.empty:
             return {

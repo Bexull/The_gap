@@ -47,7 +47,6 @@ def parse_freeze_time_from_db(freeze_time_raw) -> int:
         
         return 0
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка парсинга freeze_time: {freeze_time_raw}, ошибка: {e}")
         return 0
 
 
@@ -87,7 +86,6 @@ def parse_time_begin_from_db(time_begin_raw):
         
         return None
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка парсинга time_begin: {time_begin_raw}, ошибка: {e}")
         return None
 
 
@@ -124,7 +122,6 @@ def get_task_timing_info(task_id: int) -> dict:
         """)
         
         if df.empty:
-            print(f"⚠️ [WARNING] Задание {task_id} не найдено в БД")
             return {
                 'time_begin': None,
                 'freeze_time': 0,
@@ -159,7 +156,6 @@ def get_task_timing_info(task_id: int) -> dict:
         }
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка получения timing info для задания {task_id}: {e}")
         return {
             'time_begin': None,
             'freeze_time': 0,
@@ -212,7 +208,6 @@ def update_freeze_time_on_pause(task_id: int):
         info = get_task_timing_info(task_id)
         
         if info['time_begin'] is None:
-            print(f"⚠️ [WARNING] task={task_id} time_begin уже NULL, пропускаем обновление freeze_time")
             return
         
         # Вычисляем время текущей сессии
@@ -231,10 +226,9 @@ def update_freeze_time_on_pause(task_id: int):
             AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"💾 [PAUSE] task={task_id} freeze_time: {info['freeze_time']}s + {delta_seconds}s = {new_freeze_time_seconds}s ({new_freeze_time_str}), time_begin=NULL")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка обновления freeze_time для задания {task_id}: {e}")
+        pass
 
 
 def reset_time_begin(task_id: int):
@@ -255,10 +249,9 @@ def reset_time_begin(task_id: int):
             AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"▶️ [START] task={task_id} time_begin={now_str}")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка установки time_begin для задания {task_id}: {e}")
+        pass
 
 
 def clear_time_begin(task_id: int):
@@ -277,10 +270,9 @@ def clear_time_begin(task_id: int):
             AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"⏸️ [PAUSE] task={task_id} time_begin=NULL")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка очистки time_begin для задания {task_id}: {e}")
+        pass
 
 
 def reset_freeze_time(task_id: int):
@@ -298,10 +290,9 @@ def reset_freeze_time(task_id: int):
             AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"🔄 [RESET] task={task_id} freeze_time=00:00:00")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка сброса freeze_time для задания {task_id}: {e}")
+        pass
 
 
 # ============================================================================
@@ -316,7 +307,6 @@ def read_freeze_time(task_id: int) -> int:
     """
     info = get_task_timing_info(task_id)
     freeze_time = info['freeze_time']
-    print(f"📖 [READ] task={task_id} freeze_time={freeze_time}s")
     return freeze_time
 
 
@@ -336,10 +326,9 @@ def save_freeze_time(task_id: int, total_seconds: int):
             AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"💾 [SAVE] task={task_id} freeze_time={formatted_time} ({total_seconds}s)")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка сохранения freeze_time для задания {task_id}: {e}")
+        pass
 
 
 def accumulate_freeze_time(task_id: int, current_session_seconds: float) -> int:
@@ -358,12 +347,10 @@ def accumulate_freeze_time(task_id: int, current_session_seconds: float) -> int:
         # 3. Сохраняем обратно в БД
         save_freeze_time(task_id, total_elapsed)
         
-        print(f"➕ [ACCUMULATE] task={task_id} previous={previous_elapsed}s + session={int(current_session_seconds)}s = total={total_elapsed}s")
         
         return total_elapsed
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка накопления freeze_time для задания {task_id}: {e}")
         return 0
 
 

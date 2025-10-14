@@ -15,7 +15,6 @@ async def schedule_tasks_from_rules(context):
     
     # Проверка, не запущен ли уже планировщик
     if _scheduler_running:
-        print("⚠️ Планировщик уже выполняется. Пропускаем этот запуск.")
         return
         
     # Устанавливаем флаг, что планировщик запущен
@@ -31,7 +30,6 @@ async def schedule_tasks_from_rules(context):
         shift_ru = 'День' if 8 <= now.hour < 20 else 'Ночь'
         shift_en = 'day' if 8 <= now.hour < 20 else 'night'
         
-        print(f"🔄 Планировщик запущен в {current_time_full} (смена: {shift_ru}, дата: {today})")
 
         # Получаем задания на текущее время, дату и смену
         schedule_df = SQL.sql_select('wms', f"""
@@ -43,10 +41,8 @@ async def schedule_tasks_from_rules(context):
               AND merchant_code = '{MERCHANT_ID}'
         """)
         
-        print(f"🔍 Найдено заданий: {len(schedule_df)}")
         
         if schedule_df.empty:
-            print(f"📭 Нет заданий на смену {shift_ru} за {today}")
             return
         
         # Фильтрация по текущему времени с окном в 5 минут
@@ -82,7 +78,7 @@ async def schedule_tasks_from_rules(context):
         unique_times = schedule_df['start_time_short'].dropna().unique()
         times_in_window = [t for t in unique_times if t in time_window]
         if times_in_window:
-            print(f"⏰ Окно: {time_window[0]}-{time_window[-1]} | Времена в окне: {times_in_window}")
+            pass
 
         due_tasks = schedule_df[schedule_df['start_time_short'].isin(time_window)]
 
@@ -91,7 +87,6 @@ async def schedule_tasks_from_rules(context):
         
         # Убираем дубликаты заданий по названию и времени
         due_tasks = due_tasks.drop_duplicates(subset=['task_name', 'start_time_short'])
-        print(f"📋 Уникальных заданий для обработки: {len(due_tasks)}")
 
         total_assigned = 0
         assigned_opv_ids = set()  # Отслеживаем ОПВ, которым уже назначили задания в этой итерации
@@ -108,10 +103,8 @@ async def schedule_tasks_from_rules(context):
             if cache_key in _no_opv_cache:
                 last_check = _no_opv_cache[cache_key]
                 if (now - last_check).total_seconds() < 180:  # 3 минуты
-                    print(f"\n⏭️ Пропускаем '{task_name}' - недавно не было ОПВ (кэш)")
                     continue
             
-            print(f"\n🎯 Обрабатываем задание: {task_name}")
             
             # Подсчитываем количество дублей этой задачи в shift_tasks
             start_time_str = task_row['start_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notnull(task_row['start_time']) else None
@@ -129,7 +122,6 @@ async def schedule_tasks_from_rules(context):
             """)
 
             task_count = int(duplicates_df.iloc[0]['task_count'])
-            print(f"  📊 Найдено {task_count} дублей задания")
 
             # Подбираем ОПВ на смене
             # Для спец-заданий ищем ОПВ, у которых НЕТ других спец-заданий (priority='111') в статусе 'Выполняется'
@@ -139,6 +131,13 @@ async def schedule_tasks_from_rules(context):
             if assigned_opv_ids:
                 assigned_ids_str = ','.join([f"'{opv_id}'" for opv_id in assigned_opv_ids])
                 assigned_opv_filter = f"AND ss.employee_id NOT IN ({assigned_ids_str})"
+            
+            # Получаем сектор задания для фильтрации
+            task_sector = task_row.get('sector', None)
+            sector_filter = ""
+            if task_sector and pd.notnull(task_sector):
+                task_sector_escaped = str(task_sector).replace("'", "''")
+                sector_filter = f"AND (ss.sector = '{task_sector_escaped}' OR ss.sector IS NULL)"
             
             opv_df = SQL.sql_select('wms', f"""
                 SELECT DISTINCT ss.employee_id, bs.gender, concat(bs."name", ' ', bs.surname) AS fio, ba.userid
@@ -151,6 +150,7 @@ async def schedule_tasks_from_rules(context):
                   AND ss.shift_type = '{shift_en}'
                   AND ss.merchantid = {MERCHANT_ID}
                   {assigned_opv_filter}
+                  {sector_filter}
                   AND NOT EXISTS (
                       SELECT 1
                       FROM wms_bot.shift_tasks st
@@ -178,7 +178,6 @@ async def schedule_tasks_from_rules(context):
             # Фильтрация по полу
             if task_row['gender'] in ['M', 'F']:
                 opv_df = opv_df[opv_df['gender'].fillna('U').str.upper() == task_row['gender']]
-                print(f"  👤 После фильтрации по полу ({task_row['gender']}): {len(opv_df)} ОПВ")
 
             if opv_df.empty:
                 # Сохраняем в кэш, чтобы не проверять 5 минут
@@ -243,7 +242,7 @@ async def schedule_tasks_from_rules(context):
                             from ..handlers.task_handlers.task_timer import stop_timer
                             await stop_timer(task_id)
                     except Exception as timer_error:
-                        print(f"⚠️ Ошибка остановки таймера для задания {task_id}: {timer_error}")
+                        pass
                     
                     # Отправляем уведомление о заморозке ВСЕГДА, независимо от наличия таймера
                     try:
@@ -263,7 +262,7 @@ async def schedule_tasks_from_rules(context):
                             parse_mode='Markdown'
                         )
                     except Exception as notify_error:
-                        print(f"❌ Ошибка отправки уведомления о заморозке для задания {task_id}: {notify_error}")
+                        pass
 
                 # Назначаем одну задачу из дубликатов с блокировкой строки (FOR UPDATE)
                 task_to_assign_df = SQL.sql_select('wms', f"""
@@ -280,14 +279,12 @@ async def schedule_tasks_from_rules(context):
                 """)
 
                 if task_to_assign_df.empty:
-                    print(f"      ⚠️ Все дубли задания '{task_name}' уже назначены")
                     break
 
                 task_id = int(task_to_assign_df.iloc[0]['id'])
 
                 # Обновляем задание
                 now_str = now.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"  ✅ Назначено: {task_name} → {opv_name}")
                 
                 # Получаем тип занятости от замороженного задания (наследуем)
                 employment_type = 'main'  # По умолчанию основная смена
@@ -304,17 +301,17 @@ async def schedule_tasks_from_rules(context):
                     """)
                     if hasattr(frozen_task_df, 'empty') and not frozen_task_df.empty and len(frozen_task_df) > 0:
                         employment_type = frozen_task_df.iloc[0]['part_time'] or 'main'
-                        print(f"📋 Замороженное задание имело смену: {employment_type}, берем эту смену")
                     else:
-                        print(f"⚠️ Замороженных заданий не найдено, используем значение по умолчанию: {employment_type}")
+                        pass
                 except Exception as e:
-                    print(f"⚠️ Ошибка получения типа занятости от замороженного задания: {e}")
+                    pass
 
                 SQL.sql_delete('wms', f"""
                     UPDATE wms_bot.shift_tasks
                     SET status = 'Выполняется',
                         user_id = '{opv['employee_id']}',
                         time_begin = '{now_str}',
+                        freeze_time = '00:00:00',
                         part_time = '{employment_type}',
                         operator_name = '{opv['fio']}'
                     WHERE id = {task_id}
@@ -343,14 +340,12 @@ async def schedule_tasks_from_rules(context):
                         else:
                             duration = "не указано"
                     except Exception as e:
-                        print(f"      ⚠️ Ошибка при получении duration: {e}")
                         duration = "не указано"
                 else:
                     task_name = task_row.get('task_name', 'Неизвестное задание')
                     product_group = task_row.get('product_group', 'Не указано')
                     slot = task_row.get('slot', 'Не указано')
                     duration = "не указано"
-                    print(f"      ⚠️ Не удалось получить детали задания {task_id}")
                 
                 chat_id = opv['userid']
                 if isinstance(chat_id, pd.Series):
@@ -397,10 +392,9 @@ async def schedule_tasks_from_rules(context):
                     del _no_opv_cache[cache_key]
         
         if total_assigned > 0:
-            print(f"✅ Назначено заданий: {total_assigned}")
+            pass
 
     except Exception as e:
-        print(f"❌ Ошибка планировщика: {e}")
         pass
     finally:
         # Сбрасываем флаг планировщика в любом случае

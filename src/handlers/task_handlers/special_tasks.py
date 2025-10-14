@@ -56,7 +56,6 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
         new_worked = current_worked + task_seconds
         context.user_data['worked_seconds'] = new_worked
         
-        print(f"⏰ Обновлено время работы (спец-задание): {current_worked}s + {task_seconds}s = {new_worked}s")
 
     # Завершаем спец-задание
     now_str = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -152,7 +151,7 @@ async def complete_special_task_inline(update: Update, context: CallbackContext)
                 
                 task_id = frozen_task['id']
                 if task_id in active_timers:
-                    print(f"⚠️ [WARNING] Таймер для задания {task_id} уже существует в special_tasks, не создаем новый")
+                    pass
                 else:
                     # Запускаем новый таймер с allocated_seconds (полное выделенное время)
                     asyncio.create_task(
@@ -238,5 +237,4 @@ async def set_special_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Спец-задание успешно назначено!")
         
     except Exception as e:
-        print(f"❌ Ошибка в set_special_task: {e}")
         await update.message.reply_text("❌ Произошла ошибка при назначении спец-задания")

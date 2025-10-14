@@ -140,7 +140,6 @@ async def show_opv_completed_list(update: Update, context: CallbackContext):
         await query.edit_message_text("✅ ОПВ, завершившие смену:", reply_markup=reply_markup)
 
     except Exception as e:
-        print(f"❌ Ошибка при получении завершивших ОПВ: {e}")
         await query.edit_message_text("Ошибка при получении данных.")
 
 async def show_opv_summary(update: Update, context: CallbackContext):
@@ -170,7 +169,6 @@ async def show_opv_summary(update: Update, context: CallbackContext):
         await query.edit_message_text(message, parse_mode='Markdown')
 
     except Exception as e:
-        print(f"❌ Ошибка при выводе данных по ОПВ: {e}")
         await query.edit_message_text("Ошибка при получении данных.")
 
 async def handle_review(update: Update, context: CallbackContext):
@@ -244,12 +242,12 @@ async def handle_review(update: Update, context: CallbackContext):
                     )
                     
                     if success:
-                        print(f"⏰ Обновлено время работы ОПВ {opv_id}: {current_worked}s + {task_seconds}s = {new_worked}s")
+                        pass
                     else:
-                        print(f"⚠️ Не удалось обновить время работы ОПВ {opv_id}")
+                        pass
                 except Exception as e:
-                    print(f"⚠️ Ошибка при обновлении времени работы ОПВ {opv_id}: {e}")
                     # Если не удалось обновить контекст, просто логируем
+                    pass
             
             try:
                 await context.bot.send_message(
@@ -264,9 +262,7 @@ async def handle_review(update: Update, context: CallbackContext):
                     text="Хотите взять следующее задание? 👇",
                     reply_markup=reply_markup
                 )
-                print(f"✅ Сообщения отправлены ОПВ {opv_user_id} о подтверждении задания {task_id}")
             except Exception as e:
-                print(f"❌ Ошибка при отправке сообщения ОПВ {opv_user_id}: {e}")
                 # Отправляем уведомление в группу ЗС
                 await context.bot.send_message(
                     chat_id=ZS_GROUP_CHAT_ID,
@@ -274,7 +270,6 @@ async def handle_review(update: Update, context: CallbackContext):
                 )
     else:
         # Если это не approve - значит что-то пошло не так
-        print(f"⚠️ Неожиданный action в handle_review: {action}")
         await query.edit_message_text("⚠️ Ошибка обработки действия.")
 
 
@@ -310,7 +305,7 @@ async def start_reject_reason(update: Update, context: CallbackContext):
                 reply_markup=ForceReply(selective=True)
             )
     except Exception as e:
-        print(f"⚠️ Не удалось отправить ForceReply запрос: {e}")
+        pass
 
 
 async def receive_reject_reason(update: Update, context: CallbackContext):
@@ -343,18 +338,15 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         """)
         
         if task_check_df.empty:
-            print(f"❌ Задание {task_id} не найдено в БД")
             await update.message.reply_text("⚠️ Задание не найдено или уже обработано.")
             context.user_data.pop('reject_task_id', None)
             context.user_data.pop('reject_opv_id', None)
             return
             
-        print(f"✅ Задание найдено: {task_check_df.iloc[0].to_dict()}")
         current_status = task_check_df.iloc[0]['status']
         
         # Разрешаем возврат, когда задача на проверке/ожидает проверки, выполняется или уже помечена на доработку
         if current_status not in ['На проверке', 'Выполняется', 'Ожидает проверки']:
-            print(f"❌ Неподходящий статус: {current_status}")
             await update.message.reply_text(f"⚠️ Задание уже имеет статус '{current_status}' и не может быть возвращено.")
             context.user_data.pop('reject_task_id', None)
             context.user_data.pop('reject_opv_id', None)
@@ -371,7 +363,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             WHERE id = {task_id}
         """)
         
-        print(f"✅ Статус обновлен")
 
         # Получаем данные задания для уведомления
         task_df = SQL.sql_select('wms', f"""
@@ -381,7 +372,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         """)
         
         if task_df.empty:
-            print(f"❌ Не удалось получить данные задания")
             await update.message.reply_text("⚠️ Не найдено задание для возврата.")
             context.user_data.pop('reject_task_id', None)
             context.user_data.pop('reject_opv_id', None)
@@ -396,14 +386,12 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         """)
         
         if opv_userid_df.empty:
-            print(f"❌ Не найден Telegram ID для employee_id {opv_employee_id}")
             await update.message.reply_text("⚠️ У сотрудника не зарегистрирован Telegram ID.")
             context.user_data.pop('reject_task_id', None)
             context.user_data.pop('reject_opv_id', None)
             return
 
         opv_user_id = int(opv_userid_df.iloc[0]['userid'])
-        print(f"✅ Найден Telegram ID: {opv_user_id}")
 
         # Обработка времени
         if isinstance(row['time_begin'], dt.time):
@@ -449,7 +437,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
                 parse_mode='Markdown',
                 reply_markup=get_task_keyboard()
             )
-            print(f"✅ Сообщение о возврате отправлено ОПВ {opv_user_id}")
 
             from ..config.settings import active_timers
             from ..handlers.task_handlers import update_timer
@@ -478,7 +465,6 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
                 )
             )
         except Exception as e:
-            print(f"❌ Ошибка при отправке сообщения о возврате ОПВ {opv_user_id}: {e}")
             # Отправляем уведомление в группу ЗС
             await context.bot.send_message(
                 chat_id=ZS_GROUP_CHAT_ID,
@@ -509,11 +495,11 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
             )
             
             if success:
-                print(f"✅ Контекст ОПВ {opv_user_id} обновлен")
+                pass
             else:
-                print(f"⚠️ Не удалось обновить контекст ОПВ {opv_user_id}")
+                pass
         except Exception as e:
-            print(f"⚠️ Ошибка при обновлении контекста ОПВ {opv_user_id}: {e}")
+            pass
         
         # Уведомляем ЗС об успехе
         await update.message.reply_text(f"✅ Задание №{task_id} возвращено на доработку. ОПВ уведомлён.")
@@ -527,12 +513,10 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
                     message_id=first_message_id,
                     caption=f"⚠️ Задание №{task_id} возвращено на доработку.\nПричина: {reason}"
                 )
-                print(f"✅ Сообщение в групповом чате обновлено")
             except Exception as e:
-                print(f"⚠️ Не удалось обновить сообщение в групповом чате: {e}")
+                pass
 
     except Exception as e:
-        print(f"❌ Ошибка при возврате задания: {e}")
         import traceback
         traceback.print_exc()
         await update.message.reply_text("⚠️ Произошла ошибка при возврате задания. Попробуйте позже.")
@@ -541,4 +525,3 @@ async def receive_reject_reason(update: Update, context: CallbackContext):
         # ВАЖНО: ВСЕГДА очищаем контекст ЗС после обработки
         context.user_data.pop('reject_task_id', None)
         context.user_data.pop('reject_opv_id', None)
-        print(f"✅ Контекст ЗС очищен")

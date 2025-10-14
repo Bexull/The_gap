@@ -17,7 +17,6 @@ async def update_timer(context, chat_id, message_id, task, total_seconds, reply_
 
     # Проверяем, есть ли уже активный таймер для этого задания
     if task_id in active_timers:
-        print(f"⚠️ [WARNING] Таймер для задания {task_id} уже существует, не создаем новый")
         return
 
     # Сохраняем информацию для UI (НЕ для логики времени!)
@@ -67,7 +66,6 @@ async def _render_timer_loop(context, task_id):
                 """)
 
                 if status_df.empty:
-                    print(f"⚠️ [WARNING] Задание {task_id} не найдено, останавливаем таймер")
                     del active_timers[task_id]
                     break
 
@@ -75,12 +73,10 @@ async def _render_timer_loop(context, task_id):
 
                 # Останавливаем таймер если статус изменился
                 if current_status not in ['Выполняется', 'На доработке']:
-                    print(f"ℹ️ Таймер задания {task_id} остановлен, статус: {current_status}")
                     del active_timers[task_id]
                     break
 
             except Exception as e:
-                print(f"❌ [ERROR] Ошибка проверки статуса задания {task_id}: {e}")
                 await asyncio.sleep(TIMER_TICK_SECONDS)
                 continue
 
@@ -122,18 +118,16 @@ async def _render_timer_loop(context, task_id):
                     )
                 except Exception as e:
                     # Сообщение могло быть удалено или изменено - останавливаем таймер
-                    print(f"⚠️ [WARNING] Не удалось обновить сообщение для задания {task_id}: {e}")
                     del active_timers[task_id]
                     break
 
             except Exception as e:
-                print(f"❌ [ERROR] Ошибка обновления таймера для задания {task_id}: {e}")
+                pass
 
             # Ждем до следующего тика
             await asyncio.sleep(TIMER_TICK_SECONDS)
 
     except Exception as e:
-        print(f"❌ [ERROR] Критическая ошибка в таймере задания {task_id}: {e}")
         if task_id in active_timers:
             del active_timers[task_id]
 
@@ -147,7 +141,6 @@ async def stop_timer(task_id: int):
     """
     if task_id in active_timers:
         del active_timers[task_id]
-        print(f"⏹️ [STOP] Таймер задания {task_id} остановлен вручную")
 
 
 async def restart_timer(context, task_id: int):
@@ -172,7 +165,6 @@ async def restart_timer(context, task_id: int):
         """)
         
         if task_df.empty:
-            print(f"⚠️ [WARNING] Задание {task_id} не найдено для перезапуска таймера")
             return
         
         row = task_df.iloc[0]
@@ -198,7 +190,6 @@ async def restart_timer(context, task_id: int):
         # TODO: Получить chat_id, message_id, reply_markup из контекста
         # Это нужно будет реализовать если используется restart_timer
         
-        print(f"🔄 [RESTART] Перезапуск таймера для задания {task_id}")
         
     except Exception as e:
-        print(f"❌ [ERROR] Ошибка перезапуска таймера для задания {task_id}: {e}")
+        pass

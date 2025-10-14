@@ -2,7 +2,7 @@
 # РЕЖИМ РАБОТЫ БОТА
 # =============================================================================
 # Доступные режимы: test, prod_kenmart, prod_bekzhan, prod_city, prod_kuldzha
-MODE = 'test'  # Измените на нужный режим
+MODE = 'prod_kuldzha'  # Измените на нужный режим
 
 # =============================================================================
 # КОНФИГУРАЦИИ ДЛЯ КАЖДОГО РЕЖИМА
@@ -78,10 +78,10 @@ CONFIGS = {
         }
     },
     'prod_kuldzha': {
-        'TOKEN': '',  # TODO: Указать TOKEN для Kuldzha
-        'ADMIN_ID': 1015079692,  # TODO: Указать правильный ADMIN_ID для Kuldzha
+        'TOKEN': '7475789069:AAFuxFKyulaD24Pf3NR5DeFQbIpjlssaMbw', 
+        'ADMIN_ID': 1015079692,  # 
         'ZS_GROUP_CHAT_ID': -1002997369465,
-        'MERCHANT_ID': 8001,  # TODO: Указать правильный MERCHANT_ID для Kuldzha
+        'MERCHANT_ID': 5003,  
         'TOPIC_IDS': {
             'Бакалея': 2,
             'Напитки': 4,

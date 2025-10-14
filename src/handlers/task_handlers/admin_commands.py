@@ -77,7 +77,6 @@ async def clear_topic_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                     if message_text.startswith("@"):
                         should_skip = True
                         skipped_count += 1
-                        logger.debug(f"Пропущено сообщение {msg_id} (начинается с @)")
                     
                     # Удаляем пересланное сообщение
                     await context.bot.delete_message(chat_id, message.message_id)
@@ -113,10 +112,8 @@ async def clear_topic_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                         ]):
                             # Это может быть закрепленное или служебное сообщение
                             skipped_count += 1
-                            logger.debug(f"Пропущено сообщение {msg_id} (возможно закреплено): {e}")
                         else:
                             errors_count += 1
-                            logger.debug(f"Ошибка удаления сообщения {msg_id}: {e}")
             
             # Если в пачке ничего не удалили, прекращаем
             if batch_deleted == 0:
@@ -140,7 +137,7 @@ async def clear_topic_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.delete_message(chat_id, update.message.message_id)
             deleted_count += 1
         except Exception as e:
-            logger.debug(f"Не удалось удалить команду: {e}")
+            pass
         
         # Финальное сообщение
         final_text = f"✅ Очистка топика завершена!\n\n" \
